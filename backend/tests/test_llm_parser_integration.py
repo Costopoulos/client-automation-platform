@@ -326,3 +326,29 @@ class TestLLMExtractionQuality:
                 assert field_confidences.get(field_name, 0) > 0.5, (
                     f"Field {field_name} has value but low confidence"
                 )
+
+class TestLLMErrorHandling:
+    """Test LLM error handling and edge cases"""
+
+    def test_handles_empty_content(self, ai_extractor):
+        """Test that LLM handles empty content gracefully"""
+        content = ""
+        schema = {"client_name": "Full name"}
+
+        data, confidence = ai_extractor.extract_structured_data(content, schema, RecordType.FORM)
+
+        # Should return data with null values
+        assert data is not None
+        assert data["client_name"] is None or data["client_name"] == ""
+        assert confidence < 0.5
+
+    def test_handles_malformed_html(self, ai_extractor):
+        """Test that LLM handles malformed HTML"""
+        content = "<html><body><p>Broken HTML without closing tags"
+        schema = {"client_name": "Full name"}
+
+        # Should not crash
+        data, confidence = ai_extractor.extract_structured_data(content, schema, RecordType.FORM)
+
+        assert data is not None
+        assert isinstance(data, dict)
