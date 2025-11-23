@@ -6,3 +6,9 @@ __pycache__/
 node_modules/
 .idea/
 .vscode/
+.kiro/
+
+# Backend
+backend/.pytest_cache/
+backend/.coverage
+backend/.ruff_cache/
