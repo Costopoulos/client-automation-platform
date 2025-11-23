@@ -327,6 +327,100 @@ class TestLLMExtractionQuality:
                     f"Field {field_name} has value but low confidence"
                 )
 
+
+class TestLLMVsRuleBasedComparison:
+    """Compare LLM extraction with rule-based parsers"""
+
+    def test_llm_matches_rule_based_form_parser(self, ai_extractor):
+        """Compare LLM extraction with rule-based form parser"""
+        from app.parsers import FormParser
+
+        filepath = Path("dummy_data/forms/contact_form_1.html")
+        content = filepath.read_text(encoding="utf-8")
+
+        # Rule-based extraction
+        rule_parser = FormParser()
+        rule_data = rule_parser.parse(filepath)
+
+        # LLM extraction
+        schema = {
+            "client_name": "Full name of the client",
+            "email": "Email address",
+            "phone": "Phone number",
+            "company": "Company name",
+            "service_interest": "Service of interest",
+            "priority": "Priority level",
+            "message": "Message content",
+        }
+        llm_data, confidence = ai_extractor.extract_structured_data(
+            content, schema, RecordType.FORM
+        )
+
+        # Compare key fields
+        print("\n=== LLM vs Rule-Based Comparison ===")
+        print(f"LLM Confidence: {confidence:.2f}")
+        print("\nClient Name:")
+        print(f"  Rule-based: {rule_data.get('client_name')}")
+        print(f"  LLM: {llm_data.get('client_name')}")
+        print("\nEmail:")
+        print(f"  Rule-based: {rule_data.get('email')}")
+        print(f"  LLM: {llm_data.get('email')}")
+        print("\nPhone:")
+        print(f"  Rule-based: {rule_data.get('phone')}")
+        print(f"  LLM: {llm_data.get('phone')}")
+
+        # Both should extract the same core data
+        assert llm_data["client_name"] == rule_data["client_name"]
+        assert llm_data["email"] == rule_data["email"]
+        assert llm_data["phone"] == rule_data["phone"]
+
+    def test_llm_matches_rule_based_invoice_parser(self, ai_extractor):
+        """Compare LLM extraction with rule-based invoice parser"""
+        from app.parsers import InvoiceParser
+
+        filepath = Path("dummy_data/invoices/invoice_TF-2024-001.html")
+        content = filepath.read_text(encoding="utf-8")
+
+        # Rule-based extraction
+        rule_parser = InvoiceParser()
+        rule_data = rule_parser.parse(filepath)
+
+        # LLM extraction
+        schema = {
+            "invoice_number": "Invoice number (format: TF-YYYY-NNN)",
+            "date": "Invoice date",
+            "client_name": "Client name",
+            "amount": "Base amount (number)",
+            "vat": "VAT amount (number)",
+            "total_amount": "Total amount (number)",
+        }
+        llm_data, confidence = ai_extractor.extract_structured_data(
+            content, schema, RecordType.INVOICE
+        )
+
+        # Compare key fields
+        print("\n=== LLM vs Rule-Based Invoice Comparison ===")
+        print(f"LLM Confidence: {confidence:.2f}")
+        print("\nInvoice Number:")
+        print(f"  Rule-based: {rule_data.get('invoice_number')}")
+        print(f"  LLM: {llm_data.get('invoice_number')}")
+        print("\nClient Name:")
+        print(f"  Rule-based: {rule_data.get('client_name')}")
+        print(f"  LLM: {llm_data.get('client_name')}")
+        print("\nAmount:")
+        print(f"  Rule-based: {rule_data.get('amount')}")
+        print(f"  LLM: {llm_data.get('amount')}")
+
+        # Both should extract the same core data
+        assert llm_data["invoice_number"] == rule_data["invoice_number"]
+        assert llm_data["client_name"] == rule_data["client_name"]
+
+        # Amounts might be strings or floats, normalize for comparison
+        llm_amount = float(llm_data["amount"]) if llm_data["amount"] else None
+        rule_amount = float(rule_data["amount"]) if rule_data["amount"] else None
+        assert llm_amount == rule_amount
+
+
 class TestLLMErrorHandling:
     """Test LLM error handling and edge cases"""
 
