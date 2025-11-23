@@ -23,3 +23,6 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = ["--strict-markers"]
 asyncio_mode = "auto"
+markers = [
+    "integration: marks tests as integration tests (require API access)",
+]
