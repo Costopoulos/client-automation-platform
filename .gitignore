@@ -12,4 +12,5 @@ node_modules/
 backend/.pytest_cache/
 backend/.coverage
 backend/credentials/
+backend/logs/
 backend/.ruff_cache/
