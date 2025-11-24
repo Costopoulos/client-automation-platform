@@ -51,6 +51,11 @@ class Settings(BaseSettings):
     # API Configuration
     cors_origins: str = "http://localhost:3000,http://localhost:5173"
 
+    # Extraction Strategy
+    use_llm_extraction: bool = True
+    llm_confidence_threshold: float = 0.7
+    llm_fallback_to_rules: bool = True
+
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins into a list"""

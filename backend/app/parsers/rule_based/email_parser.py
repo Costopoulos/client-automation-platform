@@ -9,8 +9,8 @@ from app.parsers.base import BaseParser
 from app.parsers.utils import is_valid_email, is_valid_greek_phone, normalize_date
 
 
-class EmailParser(BaseParser):
-    """Parser for EML email files using Python email library"""
+class RuleBasedEmailParser(BaseParser):
+    """Rule-based parser for EML email files using Python email library"""
 
     def parse(self, filepath: Path) -> Dict:
         """
@@ -225,3 +225,7 @@ class EmailParser(BaseParser):
             )
 
         return warnings
+
+
+# Keep backward compatibility alias
+EmailParser = RuleBasedEmailParser

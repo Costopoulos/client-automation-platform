@@ -62,6 +62,7 @@ class ExtractionRecord(BaseModel):
     # Metadata
     field_confidences: Optional[Dict[str, float]] = None
     raw_extraction: Optional[Dict[str, Any]] = None
+    extraction_method: Optional[str] = None  # "llm", "rule-based", "hybrid"
 
 
 class ScanResult(BaseModel):

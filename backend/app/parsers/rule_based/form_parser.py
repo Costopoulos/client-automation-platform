@@ -8,8 +8,8 @@ from app.parsers.base import BaseParser
 from app.parsers.utils import is_valid_email, is_valid_greek_phone, normalize_date
 
 
-class FormParser(BaseParser):
-    """Parser for HTML contact forms using BeautifulSoup4"""
+class RuleBasedFormParser(BaseParser):
+    """Rule-based parser for HTML contact forms using BeautifulSoup4"""
 
     def parse(self, filepath: Path) -> Dict:
         """
@@ -144,3 +144,7 @@ class FormParser(BaseParser):
                 )
 
         return warnings
+
+
+# Keep backward compatibility alias
+FormParser = RuleBasedFormParser

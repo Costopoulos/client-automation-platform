@@ -9,8 +9,8 @@ from app.parsers.base import BaseParser
 from app.parsers.utils import normalize_date
 
 
-class InvoiceParser(BaseParser):
-    """Parser for HTML invoices using BeautifulSoup4"""
+class RuleBasedInvoiceParser(BaseParser):
+    """Rule-based parser for HTML invoices using BeautifulSoup4"""
 
     def parse(self, filepath: Path) -> Dict:
         """
@@ -353,3 +353,7 @@ class InvoiceParser(BaseParser):
             )
 
         return warnings
+
+
+# Keep backward compatibility alias
+InvoiceParser = RuleBasedInvoiceParser
