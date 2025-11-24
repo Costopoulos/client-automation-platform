@@ -446,3 +446,151 @@ class TestLLMErrorHandling:
 
         assert data is not None
         assert isinstance(data, dict)
+
+
+class TestLLMMessageSummarization:
+    """Test LLM message summarization capabilities"""
+
+    def test_summarizes_long_email_message(self, ai_extractor):
+        """Test that LLM summarizes long email messages appropriately"""
+        filepath = Path("dummy_data/emails/email_01.eml")
+        content = filepath.read_text(encoding="utf-8")
+
+        # Request a summary instead of full message
+        schema = {
+            "client_name": "Full name of the client",
+            "message": "Brief 1-2 sentence summary of the main request or message",
+        }
+
+        data, confidence = ai_extractor.extract_structured_data(
+            content, schema, RecordType.EMAIL
+        )
+
+        message = data.get("message", "")
+        print("\n=== Message Summarization Test ===")
+        print(f"Original message length: {len(content)} chars")
+        print(f"Summary: {message}")
+        print(f"Summary length: {len(message)} chars")
+
+        # Summary should be much shorter than original
+        assert message is not None
+        assert len(message) > 0
+        assert len(message) < len(content) / 2, "Summary should be significantly shorter"
+
+        # Should contain key concepts
+        assert "CRM" in message or "διαχείριση" in message or "πελατ" in message
+
+    def test_summarizes_long_form_message(self, ai_extractor):
+        """Test that LLM summarizes long form messages appropriately"""
+        filepath = Path("dummy_data/forms/contact_form_1.html")
+        content = filepath.read_text(encoding="utf-8")
+
+        # Request a summary instead of full message
+        schema = {
+            "client_name": "Full name of the client",
+            "message": "Brief 1-2 sentence summary of the main request",
+        }
+
+        data, confidence = ai_extractor.extract_structured_data(
+            content, schema, RecordType.FORM
+        )
+
+        message = data.get("message", "")
+        print("\n=== Form Message Summarization Test ===")
+        print(f"Summary: {message}")
+
+        # Should be concise
+        assert message is not None
+        assert len(message) > 0
+        assert len(message) < 200, "Summary should be concise (< 200 chars)"
+
+        # Should contain key concepts
+        assert "website" in message.lower() or "e-commerce" in message.lower()
+
+
+class TestLLMParsersWithSummarization:
+    """Test the LLM-based parsers with built-in summarization"""
+
+    def test_llm_form_parser_summarizes_message(self):
+        """Test that LLMFormParser automatically summarizes messages"""
+        from app.parsers.llm_based import LLMFormParser
+
+        parser = LLMFormParser()
+        filepath = Path("dummy_data/forms/contact_form_1.html")
+
+        data = parser.parse(filepath)
+
+        print("\n=== LLMFormParser Test ===")
+        print(f"Client: {data.get('client_name')}")
+        print(f"Email: {data.get('email')}")
+        print(f"Message: {data.get('message')}")
+        print(f"Confidence: {data.get('_confidence')}")
+
+        # Verify data extraction
+        assert data["client_name"] == "Νίκος Παπαδόπουλος"
+        assert data["email"] == "nikos.papadopoulos@example.gr"
+
+        # Verify message is summarized (not full text)
+        message = data.get("message", "")
+        assert message is not None
+        assert len(message) > 0
+        assert len(message) < 200, "Message should be summarized, not full text"
+
+        # Should contain key concepts
+        assert "website" in message.lower() or "e-commerce" in message.lower()
+
+    def test_llm_email_parser_summarizes_message(self):
+        """Test that LLMEmailParser automatically summarizes messages"""
+        from app.parsers.llm_based import LLMEmailParser
+
+        parser = LLMEmailParser()
+        filepath = Path("dummy_data/emails/email_01.eml")
+
+        data = parser.parse(filepath)
+
+        print("\n=== LLMEmailParser Test ===")
+        print(f"Client: {data.get('client_name')}")
+        print(f"Email: {data.get('email')}")
+        print(f"Message: {data.get('message')}")
+        print(f"Confidence: {data.get('_confidence')}")
+
+        # Verify data extraction
+        assert data["client_name"] == "Σπύρος Μιχαήλ"
+        assert data["email"] == "spyros.michail@techcorp.gr"
+
+        # Verify message is summarized
+        message = data.get("message", "")
+        assert message is not None
+        assert len(message) > 0
+        assert len(message) < 300, "Message should be summarized"
+
+        # Should contain key concepts
+        assert "CRM" in message or "διαχείριση" in message or "πελατ" in message
+
+    def test_llm_invoice_parser_extracts_correctly(self):
+        """Test that LLMInvoiceParser extracts invoice data correctly"""
+        from app.parsers.llm_based import LLMInvoiceParser
+
+        parser = LLMInvoiceParser()
+        filepath = Path("dummy_data/invoices/invoice_TF-2024-001.html")
+
+        data = parser.parse(filepath)
+
+        print("\n=== LLMInvoiceParser Test ===")
+        print(f"Invoice: {data.get('invoice_number')}")
+        print(f"Client: {data.get('client_name')}")
+        print(f"Amount: {data.get('amount')}")
+        print(f"VAT: {data.get('vat')}")
+        print(f"Total: {data.get('total_amount')}")
+        print(f"Confidence: {data.get('_confidence')}")
+
+        # Verify data extraction
+        assert data["invoice_number"] == "TF-2024-001"
+        assert data["client_name"] == "Office Solutions Ltd"
+        assert data["amount"] == 850.0
+        assert data["vat"] == 204.0
+        assert data["total_amount"] == 1054.0
+
+        # Verify validation passes
+        warnings = parser.validate(data)
+        assert len(warnings) == 0, f"Unexpected warnings: {warnings}"
