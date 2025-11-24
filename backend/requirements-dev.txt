@@ -7,3 +7,4 @@ black==24.1.1
 ruff==0.1.14
 pre-commit==3.6.0
 httpx==0.26.0
+fakeredis==2.21.1

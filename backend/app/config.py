@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     llm_confidence_threshold: float = 0.7
     llm_fallback_to_rules: bool = True
 
+    # Redis Configuration
+    redis_url: str = "redis://redis:6379/0"
+
     @property
     def cors_origins_list(self) -> List[str]:
         """Parse CORS origins into a list"""
