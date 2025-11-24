@@ -19,13 +19,15 @@ class PendingQueueManager:
     - Persistence (survives server restarts)
     - Production-ready scalability
     - Fast O(1) lookups
+    - Pub/Sub for real-time notifications
 
     """
 
     # Redis key prefixes
-    QUEUE_PREFIX = "queue:record:" # individual records
-    PROCESSED_FILES_KEY = "queue:processed_files" # set of files processed
-    QUEUE_IDS_KEY = "queue:record_ids" # set of all record ids, eg for listing all items -> Redis doesn't support "get all keys with prefix" well
+    QUEUE_PREFIX = "queue:record:"  # individual records
+    PROCESSED_FILES_KEY = "queue:processed_files"  # set of files processed
+    QUEUE_IDS_KEY = "queue:record_ids"  # set of all record ids, eg for listing all items -> Redis doesn't support "get all keys with prefix" well
+    PUBSUB_CHANNEL = "queue:events"  # pub/sub channel for real-time updates
 
     def __init__(self, redis_client: redis.Redis):
         """
@@ -62,6 +64,16 @@ class PendingQueueManager:
             pipe.sadd(self.QUEUE_IDS_KEY, record.id)
             await pipe.execute()
 
+        # Publish event for real-time updates
+        await self._publish_event(
+            "record_added",
+            {
+                "record_id": record.id,
+                "type": record.type,
+                "confidence": record.confidence,
+            },
+        )
+
     async def remove(self, record_id: str) -> None:
         """
         Remove an extraction record from the pending queue.
@@ -84,6 +96,9 @@ class PendingQueueManager:
             pipe.delete(record_key)
             pipe.srem(self.QUEUE_IDS_KEY, record_id)
             await pipe.execute()
+
+        # Publish event for real-time updates
+        await self._publish_event("record_removed", {"record_id": record_id})
 
     async def update(self, record_id: str, updates: dict) -> ExtractionRecord:
         """
@@ -113,6 +128,15 @@ class PendingQueueManager:
 
         # Save updated record
         await self._redis.set(record_key, updated_record.model_dump_json())
+
+        # Publish event for real-time updates
+        await self._publish_event(
+            "record_updated",
+            {
+                "record_id": record_id,
+                "updates": list(updates.keys()),
+            },
+        )
 
         return updated_record
 
@@ -232,3 +256,40 @@ class PendingQueueManager:
             return True
         except Exception:
             return False
+
+    async def _publish_event(self, event_type: str, data: dict) -> None:
+        """
+        Publish an event to the Redis pub/sub channel.
+
+        Args:
+            event_type: Type of event (record_added, record_removed, record_updated)
+            data: Event data to publish
+        """
+        event = {
+            "type": event_type,
+            "data": data,
+        }
+        await self._redis.publish(self.PUBSUB_CHANNEL, json.dumps(event))
+
+    async def subscribe_to_events(self):
+        """
+        Subscribe to queue events for real-time updates.
+
+        Returns:
+            Async generator yielding events as they occur
+
+        Usage:
+            async for event in queue_manager.subscribe_to_events():
+                print(f"Event: {event}")
+        """
+        pubsub = self._redis.pubsub()
+        await pubsub.subscribe(self.PUBSUB_CHANNEL)
+
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    event_data = json.loads(message["data"])
+                    yield event_data
+        finally:
+            await pubsub.unsubscribe(self.PUBSUB_CHANNEL)
+            await pubsub.aclose()

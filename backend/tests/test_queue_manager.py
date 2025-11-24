@@ -362,3 +362,142 @@ async def test_persistence_simulation(queue_manager, redis_client):
 
     count = await new_manager.get_count()
     assert count == 1
+
+
+@pytest.mark.asyncio
+async def test_pubsub_record_added(queue_manager, sample_record):
+    """Test that adding a record publishes an event"""
+    import asyncio
+
+    events_received = []
+
+    async def listen_for_events():
+        async for event in queue_manager.subscribe_to_events():
+            events_received.append(event)
+            break  # Stop after first event
+
+    # Start listening in background
+    listener_task = asyncio.create_task(listen_for_events())
+
+    # Give listener time to subscribe
+    await asyncio.sleep(0.1)
+
+    # Add a record (should trigger event)
+    await queue_manager.add(sample_record)
+
+    # Wait for event
+    await asyncio.wait_for(listener_task, timeout=2.0)
+
+    # Verify event was received
+    assert len(events_received) == 1
+    event = events_received[0]
+    assert event["type"] == "record_added"
+    assert event["data"]["record_id"] == sample_record.id
+    assert event["data"]["type"] == RecordType.FORM
+
+
+@pytest.mark.asyncio
+async def test_pubsub_record_removed(queue_manager, sample_record):
+    """Test that removing a record publishes an event"""
+    import asyncio
+
+    await queue_manager.add(sample_record)
+
+    events_received = []
+
+    async def listen_for_events():
+        async for event in queue_manager.subscribe_to_events():
+            events_received.append(event)
+            break  # Stop after first event
+
+    # Start listening in background
+    listener_task = asyncio.create_task(listen_for_events())
+
+    # Give listener time to subscribe
+    await asyncio.sleep(0.1)
+
+    # Remove the record (should trigger event)
+    await queue_manager.remove(sample_record.id)
+
+    # Wait for event
+    await asyncio.wait_for(listener_task, timeout=2.0)
+
+    # Verify event was received
+    assert len(events_received) == 1
+    event = events_received[0]
+    assert event["type"] == "record_removed"
+    assert event["data"]["record_id"] == sample_record.id
+
+
+@pytest.mark.asyncio
+async def test_pubsub_record_updated(queue_manager, sample_record):
+    """Test that updating a record publishes an event"""
+    import asyncio
+
+    await queue_manager.add(sample_record)
+
+    events_received = []
+
+    async def listen_for_events():
+        async for event in queue_manager.subscribe_to_events():
+            events_received.append(event)
+            break  # Stop after first event
+
+    # Start listening in background
+    listener_task = asyncio.create_task(listen_for_events())
+
+    # Give listener time to subscribe
+    await asyncio.sleep(0.1)
+
+    # Update the record (should trigger event)
+    await queue_manager.update(sample_record.id, {"confidence": 0.95})
+
+    # Wait for event
+    await asyncio.wait_for(listener_task, timeout=2.0)
+
+    # Verify event was received
+    assert len(events_received) == 1
+    event = events_received[0]
+    assert event["type"] == "record_updated"
+    assert event["data"]["record_id"] == sample_record.id
+    assert "confidence" in event["data"]["updates"]
+
+
+@pytest.mark.asyncio
+async def test_pubsub_multiple_subscribers(queue_manager, sample_record):
+    """Test that multiple subscribers receive the same event"""
+    import asyncio
+
+    events_received_1 = []
+    events_received_2 = []
+
+    async def listen_for_events_1():
+        async for event in queue_manager.subscribe_to_events():
+            events_received_1.append(event)
+            break
+
+    async def listen_for_events_2():
+        async for event in queue_manager.subscribe_to_events():
+            events_received_2.append(event)
+            break
+
+    # Start both listeners
+    listener_task_1 = asyncio.create_task(listen_for_events_1())
+    listener_task_2 = asyncio.create_task(listen_for_events_2())
+
+    # Give listeners time to subscribe
+    await asyncio.sleep(0.1)
+
+    # Add a record (should trigger event for both)
+    await queue_manager.add(sample_record)
+
+    # Wait for both events
+    await asyncio.wait_for(asyncio.gather(listener_task_1, listener_task_2), timeout=2.0)
+
+    # Verify both received the event
+    assert len(events_received_1) == 1
+    assert len(events_received_2) == 1
+    assert events_received_1[0]["type"] == "record_added"
+    assert events_received_2[0]["type"] == "record_added"
+    assert events_received_1[0]["data"]["record_id"] == sample_record.id
+    assert events_received_2[0]["data"]["record_id"] == sample_record.id
