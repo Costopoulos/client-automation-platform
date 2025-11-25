@@ -25,6 +25,9 @@ class GoogleSheetsClient:
     CLIENTS_SHEET = "Clients"
     INVOICES_SHEET = "Invoices"
 
+    # Retry configuration
+    MAX_RETRIES = 3
+    BASE_DELAY = 1.0  # seconds
 
     def __init__(self, credentials_path: str, spreadsheet_id: str):
         """
@@ -94,6 +97,99 @@ class GoogleSheetsClient:
             self._authenticate()
         return self._spreadsheet
 
+    def _retry_with_backoff(self, operation: Callable, operation_name: str) -> any:
+        """
+        Retry operation with exponential backoff
+
+        Args:
+            operation: Callable to execute
+            operation_name: Name of operation for logging
+
+        Returns:
+            Result of operation
+
+        Raises:
+            Exception: If all retries fail
+        """
+        last_exception = None
+
+        for attempt in range(1, self.MAX_RETRIES + 1):
+            try:
+                result = operation()
+                if attempt > 1:
+                    logger.info(
+                        "operation_succeeded_after_retry",
+                        operation=operation_name,
+                        attempt=attempt,
+                    )
+                return result
+
+            except APIError as e:
+                last_exception = e
+                # Check if it's a rate limit error (429) or server error (5xx)
+                if e.response.status_code in [429, 500, 502, 503, 504]:
+                    if attempt < self.MAX_RETRIES:
+                        # Exponential backoff: base_delay * 2^(attempt-1)
+                        backoff = self.BASE_DELAY * (2 ** (attempt - 1))
+                        logger.warning(
+                            "api_error_retrying",
+                            operation=operation_name,
+                            attempt=attempt,
+                            status_code=e.response.status_code,
+                            backoff_seconds=backoff,
+                        )
+                        time.sleep(backoff)
+                        continue
+                # For other API errors, don't retry
+                logger.error(
+                    "api_error_not_retryable",
+                    operation=operation_name,
+                    status_code=e.response.status_code,
+                    error=str(e),
+                )
+                raise
+
+            except GSpreadException as e:
+                last_exception = e
+                if attempt < self.MAX_RETRIES:
+                    # Exponential backoff: base_delay * 2^(attempt-1)
+                    backoff = self.BASE_DELAY * (2 ** (attempt - 1))
+                    logger.warning(
+                        "gspread_error_retrying",
+                        operation=operation_name,
+                        attempt=attempt,
+                        error=str(e),
+                        backoff_seconds=backoff,
+                    )
+                    time.sleep(backoff)
+                    continue
+                else:
+                    logger.error(
+                        "gspread_error_max_retries",
+                        operation=operation_name,
+                        attempt=attempt,
+                        error=str(e),
+                    )
+                    raise
+
+            except Exception as e:
+                # For unexpected errors, log and raise immediately
+                logger.error(
+                    "unexpected_error",
+                    operation=operation_name,
+                    attempt=attempt,
+                    error=str(e),
+                )
+                raise
+
+        # If we get here, all retries failed
+        logger.error(
+            "operation_failed_all_retries",
+            operation=operation_name,
+            max_retries=self.MAX_RETRIES,
+            last_error=str(last_exception),
+        )
+        raise last_exception
 
     def _write_to_sheet(
         self, sheet_name: str, row_data: List[str], record_id: str
@@ -119,6 +215,10 @@ class GoogleSheetsClient:
             worksheet.append_row(row_data, value_input_option="USER_ENTERED")
             # Return the row number (current row count)
             return len(worksheet.get_all_values())
+
+        return self._retry_with_backoff(
+            write_operation, f"write_to_{sheet_name}_{record_id}"
+        )
 
     def write_client_record(self, record: ExtractionRecord) -> int:
         """

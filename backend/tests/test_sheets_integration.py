@@ -213,3 +213,95 @@ class TestGoogleSheetsClient:
 
         with pytest.raises(ValueError, match="Cannot write record type FORM to Invoices sheet"):
             client.write_invoice_record(client_record)
+
+    @patch("app.integrations.sheets.ServiceAccountCredentials")
+    @patch("app.integrations.sheets.gspread")
+    @patch("app.integrations.sheets.time.sleep")
+    def test_retry_with_backoff_rate_limit(
+        self,
+        mock_sleep,
+        mock_gspread,
+        mock_creds,
+        mock_credentials_file,
+        mock_spreadsheet_id,
+        client_record,
+    ):
+        """Test retry logic with rate limit error"""
+        # Setup mocks - create proper mock response for APIError
+        mock_response = Mock()
+        mock_response.status_code = 429
+        mock_response.text = "Rate limit exceeded"
+        mock_response.json.return_value = {"error": {"message": "Rate limit exceeded"}}
+
+        api_error = APIError(mock_response)
+
+        mock_worksheet = Mock()
+        # First two calls raise rate limit, third succeeds
+        mock_worksheet.append_row.side_effect = [
+            api_error,
+            api_error,
+            None,
+        ]
+        mock_worksheet.get_all_values.return_value = [["header"]]
+
+        mock_spreadsheet = Mock()
+        mock_spreadsheet.worksheet.return_value = mock_worksheet
+        mock_client = Mock()
+        mock_client.open_by_key.return_value = mock_spreadsheet
+        mock_gspread.authorize.return_value = mock_client
+
+        # Create client and write record
+        client = GoogleSheetsClient(mock_credentials_file, mock_spreadsheet_id)
+        row_number = client.write_client_record(client_record)
+
+        # Verify retries occurred
+        assert mock_worksheet.append_row.call_count == 3
+        assert mock_sleep.call_count == 2  # Slept twice before third attempt
+
+        # Verify exponential backoff: 1.0 * 2^0 = 1.0, then 1.0 * 2^1 = 2.0
+        assert mock_sleep.call_args_list[0][0][0] == 1.0
+        assert mock_sleep.call_args_list[1][0][0] == 2.0
+
+    @patch("app.integrations.sheets.ServiceAccountCredentials")
+    @patch("app.integrations.sheets.gspread")
+    @patch("app.integrations.sheets.time.sleep")
+    def test_retry_with_backoff_max_retries_exceeded(
+        self,
+        mock_sleep,
+        mock_gspread,
+        mock_creds,
+        mock_credentials_file,
+        mock_spreadsheet_id,
+        client_record,
+    ):
+        """Test retry logic when max retries exceeded"""
+        # Setup mocks - create proper mock response for APIError
+        mock_response = Mock()
+        mock_response.status_code = 503
+        mock_response.text = "Service unavailable"
+        mock_response.json.return_value = {"error": {"message": "Service unavailable"}}
+
+        api_error = APIError(mock_response)
+
+        mock_worksheet = Mock()
+        mock_worksheet.append_row.side_effect = api_error
+
+        mock_spreadsheet = Mock()
+        mock_spreadsheet.worksheet.return_value = mock_worksheet
+        mock_client = Mock()
+        mock_client.open_by_key.return_value = mock_spreadsheet
+        mock_gspread.authorize.return_value = mock_client
+
+        # Create client and attempt write
+        client = GoogleSheetsClient(mock_credentials_file, mock_spreadsheet_id)
+
+        with pytest.raises(APIError):
+            client.write_client_record(client_record)
+
+        # Verify max retries attempted
+        assert mock_worksheet.append_row.call_count == 3
+        assert mock_sleep.call_count == 2
+
+        # Verify exponential backoff: 1.0 * 2^0 = 1.0, then 1.0 * 2^1 = 2.0
+        assert mock_sleep.call_args_list[0][0][0] == 1.0
+        assert mock_sleep.call_args_list[1][0][0] == 2.0
