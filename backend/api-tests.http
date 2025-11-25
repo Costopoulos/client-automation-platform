@@ -1,0 +1,92 @@
+### TechFlow Automation Platform API Tests
+### Use with REST Client extension in VS Code
+### Run these tests in order for a complete workflow test
+
+@baseUrl = http://localhost:8000/api
+
+### SETUP: Clear Queue (run this first to start fresh)
+DELETE {{baseUrl}}/pending/clear
+
+### TEST 1: Health Check
+# Expected: status: "healthy", redis: "connected", pending_count: 0
+GET {{baseUrl}}/health
+
+### TEST 2: Get Pending Count (should be 0 after clear)
+# Expected: {"count": 0, "has_new": false}
+GET {{baseUrl}}/pending/count
+
+### TEST 3: Get Pending Records (should be empty)
+# Expected: []
+GET {{baseUrl}}/pending
+
+### TEST 4: Trigger File Scan
+# Expected: processed_count, new_items_count, failed_count
+# This will scan dummy_data/ and extract from all files
+POST {{baseUrl}}/scan
+
+### TEST 5: Get Pending Count (should have items now)
+# Expected: {"count": > 0, "has_new": true}
+GET {{baseUrl}}/pending/count
+
+### TEST 6: Get Pending Records (should have extraction records)
+# Expected: Array of ExtractionRecord objects
+# Copy a record ID from the response for the next tests
+GET {{baseUrl}}/pending
+
+### TEST 7: Get Source File for a Record
+# REPLACE {record_id} with an actual ID from TEST 6
+# Expected: {"content": "...", "type": "text/html" or "text/plain", "filename": "..."}
+GET {{baseUrl}}/source/REPLACE_WITH_RECORD_ID
+
+### TEST 8: Edit a Record
+# REPLACE {record_id} with an actual ID from TEST 6
+# Expected: Updated ExtractionRecord with new values
+PATCH {{baseUrl}}/edit/REPLACE_WITH_RECORD_ID
+Content-Type: application/json
+
+{
+  "client_name": "Updated Test Name",
+  "email": "updated@test.com",
+  "phone": "1234567890"
+}
+
+### TEST 9: Verify Edit Worked
+# REPLACE {record_id} with the same ID from TEST 8
+# Expected: Record should show updated values
+GET {{baseUrl}}/pending
+
+### TEST 10: Approve a Record (writes to Google Sheets)
+# REPLACE {record_id} with an actual ID from TEST 6
+# Expected: {"success": true, "sheet_row": <row_number>}
+# This will write to Google Sheets and remove from queue
+POST {{baseUrl}}/approve/REPLACE_WITH_RECORD_ID
+
+### TEST 11: Verify Approval Removed Record
+# Expected: count should be 1 less than before
+GET {{baseUrl}}/pending/count
+
+### TEST 12: Reject a Record
+# REPLACE {record_id} with a different ID from TEST 6
+# Expected: {"success": true, "message": "Record ... rejected"}
+POST {{baseUrl}}/reject/REPLACE_WITH_RECORD_ID
+
+### TEST 13: Verify Rejection Removed Record
+# Expected: count should be 1 less than before
+GET {{baseUrl}}/pending/count
+
+### TEST 14: Test Error Handling - Invalid Record ID
+# Expected: 404 error
+GET {{baseUrl}}/source/invalid-record-id-12345
+
+### TEST 15: Test Error Handling - Approve Non-existent Record
+# Expected: 404 error
+POST {{baseUrl}}/approve/invalid-record-id-12345
+
+### TEST 16: Test Error Handling - Edit Non-existent Record
+# Expected: 404 error
+PATCH {{baseUrl}}/edit/invalid-record-id-12345
+Content-Type: application/json
+
+{
+  "client_name": "Test"
+}
