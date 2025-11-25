@@ -90,3 +90,22 @@ Content-Type: application/json
 {
   "client_name": "Test"
 }
+
+### ============================================
+### WebSocket Real-Time Notifications Testing
+### ============================================
+
+### Use wscat
+# Install: npm install -g wscat
+# Run: wscat -c ws://localhost:8000/api/ws
+# Then trigger actions in another terminal (or from this file) to see events
+
+### Expected WebSocket Events:
+# - record_added: When new extraction records are added to queue
+#   {"type": "record_added", "data": {"record_id": "...", "type": "FORM", "confidence": 0.95}}
+#
+# - record_removed: When records are approved or rejected
+#   {"type": "record_removed", "data": {"record_id": "..."}}
+#
+# - record_updated: When records are edited
+#   {"type": "record_updated", "data": {"record_id": "...", "updates": ["client_name", "email"]}}
