@@ -25,6 +25,35 @@ class GoogleSheetsClient:
     CLIENTS_SHEET = "Clients"
     INVOICES_SHEET = "Invoices"
 
+    # Sheet headers
+    CLIENTS_HEADERS = [
+        "Type",
+        "Source",
+        "Date",
+        "Client Name",
+        "Email",
+        "Phone",
+        "Company",
+        "Service Interest",
+        "Priority",
+        "Message",
+        "Extraction Timestamp",
+        "Confidence",
+    ]
+
+    INVOICES_HEADERS = [
+        "Type",
+        "Source",
+        "Date",
+        "Client Name",
+        "Amount",
+        "VAT",
+        "Total Amount",
+        "Invoice Number",
+        "Extraction Timestamp",
+        "Confidence",
+    ]
+
     # Retry configuration
     MAX_RETRIES = 3
     BASE_DELAY = 1.0  # seconds
@@ -48,9 +77,7 @@ class GoogleSheetsClient:
 
         # Validate credentials file exists
         if not Path(credentials_path).exists():
-            raise FileNotFoundError(
-                f"Google credentials file not found: {credentials_path}"
-            )
+            raise FileNotFoundError(f"Google credentials file not found: {credentials_path}")
 
         logger.info(
             "google_sheets_client_initialized",
@@ -96,6 +123,73 @@ class GoogleSheetsClient:
         if self._spreadsheet is None:
             self._authenticate()
         return self._spreadsheet
+
+    def _ensure_sheet_exists(self, sheet_name: str, headers: List[str]) -> None:
+        """
+        Ensure a sheet exists in the spreadsheet, create it if it doesn't
+
+        Args:
+            sheet_name: Name of the sheet to ensure exists
+            headers: List of header column names to add if sheet is created
+
+        Raises:
+            Exception: If sheet creation fails
+        """
+        try:
+            spreadsheet = self._get_spreadsheet()
+
+            # Try to get the worksheet
+            try:
+                worksheet = spreadsheet.worksheet(sheet_name)
+                logger.info(
+                    "sheet_already_exists",
+                    sheet_name=sheet_name,
+                )
+
+                # Check if headers need to be added (if first row is empty)
+                try:
+                    first_row = worksheet.row_values(1)
+                    if not first_row or all(not cell.strip() for cell in first_row):
+                        # Sheet exists but has no headers, add them
+                        worksheet.update(
+                            values=[headers], range_name="A1", value_input_option="USER_ENTERED"
+                        )
+                        logger.info(
+                            "headers_added_to_existing_sheet",
+                            sheet_name=sheet_name,
+                        )
+                except Exception as e:
+                    # If we can't read the first row, assume it's empty and add headers
+                    worksheet.update(
+                        values=[headers], range_name="A1", value_input_option="USER_ENTERED"
+                    )
+                    logger.info(
+                        "headers_added_to_sheet",
+                        sheet_name=sheet_name,
+                    )
+
+            except gspread.exceptions.WorksheetNotFound:
+                # Sheet doesn't exist, create it
+                worksheet = spreadsheet.add_worksheet(
+                    title=sheet_name, rows=1000, cols=len(headers)
+                )
+                # Add headers
+                worksheet.update(
+                    values=[headers], range_name="A1", value_input_option="USER_ENTERED"
+                )
+                logger.info(
+                    "sheet_created_with_headers",
+                    sheet_name=sheet_name,
+                    columns=len(headers),
+                )
+
+        except Exception as e:
+            logger.error(
+                "sheet_creation_failed",
+                sheet_name=sheet_name,
+                error=str(e),
+            )
+            raise
 
     def _retry_with_backoff(self, operation: Callable, operation_name: str) -> any:
         """
@@ -191,9 +285,7 @@ class GoogleSheetsClient:
         )
         raise last_exception
 
-    def _write_to_sheet(
-        self, sheet_name: str, row_data: List[str], record_id: str
-    ) -> int:
+    def _write_to_sheet(self, sheet_name: str, row_data: List[str], record_id: str) -> int:
         """
         Write row data to specified sheet with retry logic
 
@@ -216,9 +308,7 @@ class GoogleSheetsClient:
             # Return the row number (current row count)
             return len(worksheet.get_all_values())
 
-        return self._retry_with_backoff(
-            write_operation, f"write_to_{sheet_name}_{record_id}"
-        )
+        return self._retry_with_backoff(write_operation, f"write_to_{sheet_name}_{record_id}")
 
     def write_client_record(self, record: ExtractionRecord) -> int:
         """
@@ -240,14 +330,20 @@ class GoogleSheetsClient:
                 f"Expected FORM or EMAIL."
             )
 
+        # Ensure sheet exists before writing
+        self._ensure_sheet_exists(self.CLIENTS_SHEET, self.CLIENTS_HEADERS)
+
         # Prepare row data
+        # Note: Prefix phone with ' to force text format in Google Sheets, because the default becomes a number otherwise
+        phone_value = f"'{record.phone}" if record.phone else ""
+
         row_data = [
             record.type.value,  # Type
             record.source_file,  # Source
             record.date or "",  # Date
             record.client_name or "",  # Client Name
             record.email or "",  # Email
-            record.phone or "",  # Phone
+            phone_value,  # Phone (prefixed with ' for text format)
             record.company or "",  # Company
             record.service_interest or "",  # Service Interest
             record.priority or "",  # Priority
@@ -257,9 +353,7 @@ class GoogleSheetsClient:
         ]
 
         try:
-            row_number = self._write_to_sheet(
-                self.CLIENTS_SHEET, row_data, record.id
-            )
+            row_number = self._write_to_sheet(self.CLIENTS_SHEET, row_data, record.id)
 
             logger.info(
                 "client_record_written",
@@ -295,9 +389,11 @@ class GoogleSheetsClient:
         """
         if record.type != RecordType.INVOICE:
             raise ValueError(
-                f"Cannot write record type {record.type.value} to Invoices sheet. "
-                f"Expected INVOICE."
+                f"Cannot write record type {record.type.value} to Invoices sheet. Expected INVOICE."
             )
+
+        # Ensure sheet exists before writing
+        self._ensure_sheet_exists(self.INVOICES_SHEET, self.INVOICES_HEADERS)
 
         # Prepare row data
         row_data = [
@@ -314,9 +410,7 @@ class GoogleSheetsClient:
         ]
 
         try:
-            row_number = self._write_to_sheet(
-                self.INVOICES_SHEET, row_data, record.id
-            )
+            row_number = self._write_to_sheet(self.INVOICES_SHEET, row_data, record.id)
 
             logger.info(
                 "invoice_record_written",
