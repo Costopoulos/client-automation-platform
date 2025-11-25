@@ -83,8 +83,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
-# Configure CORS with settings
+# Configure CORS
 settings = get_settings()
 app.add_middleware(
     CORSMiddleware,
@@ -94,7 +93,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.get("/api/health")
-async def health():
-    return {"status": "healthy"}
+# Include API routes
+app.include_router(routes.router)
