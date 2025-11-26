@@ -1,16 +1,50 @@
+# OS
 .DS_Store
-*.pyc
-__pycache__/
-.env
-.venv/
-node_modules/
+Thumbs.db
+
+# IDEs
 .idea/
 .vscode/
+*.swp
+*.swo
 .kiro/
 
-# Backend
-backend/.pytest_cache/
-backend/.coverage
+# Environment files
+.env
+.env.local
+.env*.local
+
+# Dependencies
+node_modules/
+.venv/
+venv/
+env/
+
+# Python
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+.ruff_cache/
+
+# Backend specific
 backend/credentials/
 backend/logs/
-backend/.ruff_cache/
+
+# Frontend specific
+frontend/.next/
+frontend/out/
+frontend/build/
+frontend/dist/
+frontend/*.tsbuildinfo
+frontend/next-env.d.ts
