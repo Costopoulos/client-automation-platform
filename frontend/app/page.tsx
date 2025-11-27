@@ -1,5 +1,7 @@
 "use client";
 
+import { Dashboard } from "@/components/Dashboard";
+
 export default function Home() {
   return (
     <div className="min-h-screen bg-background">
@@ -13,12 +15,7 @@ export default function Home() {
       </header>
 
       <main className="container mx-auto px-4 py-8">
-        <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-4">Dashboard Ready</h2>
-          <p className="text-muted-foreground">
-            Frontend foundation is configured with TanStack Query, shadcn/ui, and WebSocket support.
-          </p>
-        </div>
+        <Dashboard />
       </main>
     </div>
   );
