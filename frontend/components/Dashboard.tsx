@@ -23,12 +23,20 @@ export function Dashboard() {
 
   // Handle approve action
   const handleApprove = (recordId: string) => {
-    approve(recordId);
+    approve(recordId, {
+      onSuccess: () => {
+        incrementApproved();
+      },
+    });
   };
 
   // Handle reject action
   const handleReject = (recordId: string) => {
-    reject(recordId);
+    reject(recordId, {
+      onSuccess: () => {
+        incrementRejected();
+      },
+    });
   };
 
   // Handle edit action - open modal
@@ -85,9 +93,19 @@ export function Dashboard() {
       counts,
     };
   }, [pendingRecords]);
+
+  // Filter and sort records: warnings first, then by confidence (low to high)
+  const filteredAndSortedRecords = React.useMemo(() => {
     if (!pendingRecords) return [];
 
-    return [...pendingRecords].sort((a, b) => {
+    // Apply filter
+    let filtered = pendingRecords;
+    if (filter !== "all") {
+      filtered = pendingRecords.filter((r) => r.type === filter);
+    }
+
+    // Sort: warnings first, then by confidence (low to high)
+    return [...filtered].sort((a, b) => {
       // Records with warnings come first
       const aHasWarnings = a.warnings.length > 0;
       const bHasWarnings = b.warnings.length > 0;
@@ -98,7 +116,7 @@ export function Dashboard() {
       // Then sort by confidence (low to high)
       return a.confidence - b.confidence;
     });
-  }, [pendingRecords]);
+  }, [pendingRecords, filter]);
 
   if (isLoading) {
     return (
@@ -153,8 +171,10 @@ export function Dashboard() {
           counts={stats.counts}
         />
       </div>
+
+      {/* Extraction Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sortedRecords.map((record) => (
+        {filteredAndSortedRecords.map((record) => (
           <ExtractionCard
             key={record.id}
             record={record}
