@@ -14,7 +14,7 @@ import { Loader2, AlertCircle, FileSearch } from "lucide-react";
 export function Dashboard() {
   const { data: pendingRecords, isLoading, error } = usePendingQueue();
   const { approve, reject, edit, isEditing } = useApproval();
-  const { approvedCount, rejectedCount, incrementApproved, incrementRejected } = useSessionStats();
+  const { approvedCount, rejectedCount, incrementApproved, incrementRejected, reset } = useSessionStats();
 
   // Modal state
   const [editingRecord, setEditingRecord] = React.useState<ExtractionRecord | null>(null);
@@ -22,6 +22,29 @@ export function Dashboard() {
 
   // Filter state
   const [filter, setFilter] = React.useState<FilterType>("all");
+
+  // Track previous pending count to detect queue clear and new batch
+  const prevPendingCountRef = React.useRef<number | null>(null);
+
+  // Auto-reset statistics when queue is cleared or new batch arrives
+  React.useEffect(() => {
+    if (!pendingRecords) return;
+
+    const currentCount = pendingRecords.length;
+    const prevCount = prevPendingCountRef.current;
+
+    // Reset stats in two scenarios:
+    // 1. Queue becomes empty (cleared) - starting fresh
+    // 2. Queue goes from 0 to having items (new batch arrives)
+    if (prevCount !== null) {
+      if ((prevCount > 0 && currentCount === 0) || (prevCount === 0 && currentCount > 0)) {
+        reset();
+      }
+    }
+
+    // Update ref for next comparison
+    prevPendingCountRef.current = currentCount;
+  }, [pendingRecords, reset]);
 
   // Handle approve action
   const handleApprove = (recordId: string) => {
