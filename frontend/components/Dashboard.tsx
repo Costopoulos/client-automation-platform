@@ -5,6 +5,7 @@ import { ExtractionCard } from "@/components/ExtractionCard";
 import { EditModal } from "@/components/EditModal";
 import { SourceViewer } from "@/components/SourceViewer";
 import { ExtractionRecord } from "@/types/extraction";
+import { FilterBar, FilterType } from "@/components/FilterBar";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, FileSearch } from "lucide-react";
 
@@ -15,6 +16,9 @@ export function Dashboard() {
   // Modal state
   const [editingRecord, setEditingRecord] = React.useState<ExtractionRecord | null>(null);
   const [viewingSourceId, setViewingSourceId] = React.useState<string | null>(null);
+
+  // Filter state
+  const [filter, setFilter] = React.useState<FilterType>("all");
 
   // Handle approve action
   const handleApprove = (recordId: string) => {
@@ -102,6 +106,14 @@ export function Dashboard() {
 
   return (
     <>
+      {/* Filter Bar */}
+      <div className="mb-6">
+        <FilterBar
+          filter={filter}
+          onFilterChange={setFilter}
+          counts={stats.counts}
+        />
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {sortedRecords.map((record) => (
           <ExtractionCard
