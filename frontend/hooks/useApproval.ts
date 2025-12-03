@@ -50,8 +50,13 @@ export function useApproval() {
   });
 
   return {
-    approve: approveMutation.mutate,
-    reject: rejectMutation.mutate,
+    // Expose mutateAsync to allow custom onSuccess callbacks
+    approve: (recordId: string, options?: { onSuccess?: () => void }) => {
+      approveMutation.mutate(recordId, options);
+    },
+    reject: (recordId: string, options?: { onSuccess?: () => void }) => {
+      rejectMutation.mutate(recordId, options);
+    },
     edit: editMutation.mutate,
     isApproving: approveMutation.isPending,
     isRejecting: rejectMutation.isPending,
