@@ -1,6 +1,7 @@
 import * as React from "react";
 import { usePendingQueue } from "@/hooks/usePendingQueue";
 import { useApproval } from "@/hooks/useApproval";
+import { useSessionStats } from "@/hooks/useSessionStats";
 import { ExtractionCard } from "@/components/ExtractionCard";
 import { EditModal } from "@/components/EditModal";
 import { SourceViewer } from "@/components/SourceViewer";
@@ -13,6 +14,7 @@ import { Loader2, AlertCircle, FileSearch } from "lucide-react";
 export function Dashboard() {
   const { data: pendingRecords, isLoading, error } = usePendingQueue();
   const { approve, reject, edit, isEditing } = useApproval();
+  const { approvedCount, rejectedCount, incrementApproved, incrementRejected } = useSessionStats();
 
   // Modal state
   const [editingRecord, setEditingRecord] = React.useState<ExtractionRecord | null>(null);
