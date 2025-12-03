@@ -4,8 +4,9 @@ import { useApproval } from "@/hooks/useApproval";
 import { ExtractionCard } from "@/components/ExtractionCard";
 import { EditModal } from "@/components/EditModal";
 import { SourceViewer } from "@/components/SourceViewer";
-import { ExtractionRecord } from "@/types/extraction";
 import { FilterBar, FilterType } from "@/components/FilterBar";
+import { StatsHeader } from "@/components/StatsHeader";
+import { ExtractionRecord, RecordType } from "@/types/extraction";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, FileSearch } from "lucide-react";
 
@@ -55,8 +56,35 @@ export function Dashboard() {
     );
   };
 
-  // Sort records: warnings first, then by confidence (low to high)
-  const sortedRecords = React.useMemo(() => {
+  // Calculate statistics
+  const stats = React.useMemo(() => {
+    if (!pendingRecords) {
+      return {
+        pendingCount: 0,
+        warningCount: 0,
+        counts: {
+          all: 0,
+          [RecordType.FORM]: 0,
+          [RecordType.EMAIL]: 0,
+          [RecordType.INVOICE]: 0,
+        },
+      };
+    }
+
+    const warningCount = pendingRecords.filter((r) => r.warnings.length > 0).length;
+    const counts = {
+      all: pendingRecords.length,
+      [RecordType.FORM]: pendingRecords.filter((r) => r.type === RecordType.FORM).length,
+      [RecordType.EMAIL]: pendingRecords.filter((r) => r.type === RecordType.EMAIL).length,
+      [RecordType.INVOICE]: pendingRecords.filter((r) => r.type === RecordType.INVOICE).length,
+    };
+
+    return {
+      pendingCount: pendingRecords.length,
+      warningCount,
+      counts,
+    };
+  }, [pendingRecords]);
     if (!pendingRecords) return [];
 
     return [...pendingRecords].sort((a, b) => {
@@ -106,6 +134,17 @@ export function Dashboard() {
 
   return (
     <>
+      {/* Statistics Header */}
+      <div className="mb-6">
+        <StatsHeader
+          pendingCount={stats.pendingCount}
+          warningCount={stats.warningCount}
+          approvedCount={approvedCount}
+          rejectedCount={rejectedCount}
+          errorCount={0}
+        />
+      </div>
+
       {/* Filter Bar */}
       <div className="mb-6">
         <FilterBar
