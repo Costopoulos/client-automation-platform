@@ -1,0 +1,74 @@
+services:
+  # Redis - Message broker for real-time events
+  redis:
+    image: redis:7-alpine
+    container_name: techflow-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - techflow-network
+
+  # Backend - FastAPI application
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: techflow-backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/credentials:/app/credentials
+      - ./backend/app:/app/app
+      - ./backend/tests:/app/tests
+      - ./backend/logs:/app/logs
+      - ./dummy_data:/app/dummy_data
+    env_file:
+      - ./backend/.env
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    restart: unless-stopped
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - techflow-network
+
+  # Frontend - Next.js application
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: techflow-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    env_file:
+      - ./frontend/.env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8000
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - techflow-network
+
+volumes:
+  redis_data:
+
+networks:
+  techflow-network:
+    driver: bridge
