@@ -48,3 +48,4 @@ frontend/build/
 frontend/dist/
 frontend/*.tsbuildinfo
 frontend/next-env.d.ts
+frontend/coverage/
