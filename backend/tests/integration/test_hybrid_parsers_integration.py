@@ -135,6 +135,44 @@ class TestHybridEmailParser:
         # Should validate successfully
         assert isinstance(warnings, list)
 
+    def test_email_with_invoice_data_llm(self):
+        """Test that LLM extracts invoice fields from emails containing invoice data"""
+        parser = HybridEmailParser()
+        filepath = Path("dummy_data/emails/email_03.eml")
+
+        data = parser.parse(filepath)
+
+        # Should use LLM
+        assert data["_extraction_method"] == "llm"
+        assert data["_confidence"] >= 0.7
+
+        # Should extract client fields
+        assert data["client_name"] is not None
+        assert data["email"] is not None
+
+        # Should extract invoice fields
+        assert data["invoice_number"] == "TF-2024-001"
+        assert data["amount"] == 850.0
+        assert data["vat"] == 204.0
+        assert data["total_amount"] == 1054.0
+
+    def test_client_email_has_no_invoice_fields(self):
+        """Test that regular client emails don't have invoice fields populated"""
+        parser = HybridEmailParser()
+        filepath = Path("dummy_data/emails/email_01.eml")
+
+        data = parser.parse(filepath)
+
+        # Should have client fields
+        assert data["client_name"] is not None
+        assert data["email"] is not None
+
+        # Should NOT have invoice fields
+        assert data.get("invoice_number") is None
+        assert data.get("amount") is None
+        assert data.get("vat") is None
+        assert data.get("total_amount") is None
+
 
 class TestHybridInvoiceParser:
     """Tests for hybrid invoice parser"""
