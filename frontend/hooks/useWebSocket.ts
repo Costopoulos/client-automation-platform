@@ -144,13 +144,17 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         clearPingInterval();
         onDisconnectRef.current?.();
 
-        // Only reconnect if not a normal closure and under max attempts
+        // Only reconnect if:
+        // 1. Not a normal closure (code 1000 = intentional disconnect)
+        // 2. Haven't exceeded max reconnection attempts
         if (event.code !== 1000 && globalReconnectAttempts < maxReconnectAttempts) {
+          // Calculate exponential backoff delay
           const delay = Math.min(
             reconnectInterval * Math.pow(2, globalReconnectAttempts),
             30000
           );
 
+          // Schedule reconnection attempt
           globalReconnectTimeout = setTimeout(() => {
             globalReconnectAttempts++;
             connect();
