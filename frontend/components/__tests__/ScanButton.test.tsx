@@ -20,17 +20,24 @@ vi.mock("sonner", () => ({
   },
 }));
 
-const createWrapper = () => {
+function createWrapper() {
   const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false },
       mutations: { retry: false },
     },
   });
-  return ({ children }: { children: React.ReactNode }) => (
-    <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
-  );
-};
+
+  function Wrapper({ children }: { children: React.ReactNode }) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
+  Wrapper.displayName = 'TestWrapper';
+
+  return Wrapper;
+}
 
 describe("ScanButton", () => {
   it("renders scan button with correct text", () => {
