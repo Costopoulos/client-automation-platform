@@ -317,9 +317,23 @@ JSON output:"""
         if not confidences:
             return 0.0
 
+        # Determine relevant fields for completeness calculation
+        # If document has invoice data, count all fields; otherwise exclude invoice fields
+        invoice_fields = {"invoice_number", "amount", "vat", "total_amount"}
+        has_invoice_data = any(
+            extracted_data.get(field) is not None for field in invoice_fields
+        )
+
+        if has_invoice_data:
+            # Document has invoice data, count all schema fields
+            relevant_fields = len(schema)
+        else:
+            # Document doesn't have invoice data, exclude invoice fields from expected count
+            relevant_fields = len([f for f in schema.keys() if f not in invoice_fields])
+
         # Average confidence weighted by completeness
         avg_confidence = sum(confidences) / len(confidences)
-        completeness = len(confidences) / len(schema)
+        completeness = len(confidences) / relevant_fields if relevant_fields > 0 else 0.0
 
         # Overall confidence is average of field confidence and completeness
         overall_confidence = (avg_confidence + completeness) / 2.0
