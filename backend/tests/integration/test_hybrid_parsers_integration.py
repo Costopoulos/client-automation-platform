@@ -156,6 +156,29 @@ class TestHybridEmailParser:
         assert data["vat"] == 204.0
         assert data["total_amount"] == 1054.0
 
+    def test_email_with_invoice_data_rule_based_fallback(self):
+        """Test that rule-based parser also extracts invoice fields from emails"""
+        with patch("app.parsers.hybrid.email_parser.get_settings") as mock_settings:
+            settings = Mock()
+            settings.use_llm_extraction = False
+            settings.llm_confidence_threshold = 0.7
+            settings.llm_fallback_to_rules = True
+            mock_settings.return_value = settings
+
+            parser = HybridEmailParser()
+            filepath = Path("dummy_data/emails/email_03.eml")
+
+            data = parser.parse(filepath)
+
+            # Should use rule-based
+            assert data["_extraction_method"] == "rule-based"
+
+            # Should extract invoice fields even with rule-based parser
+            assert data["invoice_number"] == "TF-2024-001"
+            assert data["amount"] == 850.0
+            assert data["vat"] == 204.0
+            assert data["total_amount"] == 1054.0
+
     def test_client_email_has_no_invoice_fields(self):
         """Test that regular client emails don't have invoice fields populated"""
         parser = HybridEmailParser()
