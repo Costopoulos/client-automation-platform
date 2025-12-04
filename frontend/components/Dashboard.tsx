@@ -1,7 +1,9 @@
 import * as React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { usePendingQueue } from "@/hooks/usePendingQueue";
 import { useApproval } from "@/hooks/useApproval";
 import { useSessionStats } from "@/hooks/useSessionStats";
+import { useWebSocket } from "@/hooks/useWebSocket";
 import { ExtractionCard } from "@/components/ExtractionCard";
 import { EditModal } from "@/components/EditModal";
 import { SourceViewer } from "@/components/SourceViewer";
@@ -10,8 +12,10 @@ import { StatsHeader } from "@/components/StatsHeader";
 import { ExtractionRecord, RecordType } from "@/types/extraction";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, FileSearch } from "lucide-react";
+import { toast } from "sonner";
 
 export function Dashboard() {
+  const queryClient = useQueryClient();
   const { data: pendingRecords, isLoading, error } = usePendingQueue();
   const { approve, reject, edit, isEditing } = useApproval();
   const { approvedCount, rejectedCount, incrementApproved, incrementRejected, reset } = useSessionStats();
@@ -22,6 +26,33 @@ export function Dashboard() {
 
   // Filter state
   const [filter, setFilter] = React.useState<FilterType>("all");
+
+  // Track new items indicator
+  const [hasNewItems, setHasNewItems] = React.useState(false);
+
+  // WebSocket integration for real-time updates
+  const { status: wsStatus } = useWebSocket({
+    onMessage: (event) => {
+      // Invalidate pending queue cache to trigger refetch
+      queryClient.invalidateQueries({ queryKey: ["pending"] });
+
+      // Handle different event types
+      if (event.type === "record_added") {
+        toast.success("New extraction record added", {
+          description: "A new item is ready for review",
+        });
+        setHasNewItems(true);
+      } else if (event.type === "record_removed") {
+        // Record removed (approved or rejected)
+        // No toast needed as approval/rejection already shows toast
+      } else if (event.type === "record_updated") {
+        toast.info("Record updated", {
+          description: "An extraction record has been modified",
+        });
+      }
+    },
+    // Callbacks are handled in useWebSocket hook with better logging
+  });
 
   // Track previous pending count to detect queue clear and new batch
   const prevPendingCountRef = React.useRef<number | null>(null);
@@ -45,6 +76,17 @@ export function Dashboard() {
     // Update ref for next comparison
     prevPendingCountRef.current = currentCount;
   }, [pendingRecords, reset]);
+
+  // Clear new items indicator when user views the dashboard
+  React.useEffect(() => {
+    if (hasNewItems && pendingRecords) {
+      // Clear indicator after a short delay to ensure user sees it
+      const timer = setTimeout(() => {
+        setHasNewItems(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [hasNewItems, pendingRecords]);
 
   // Handle approve action
   const handleApprove = (recordId: string) => {
@@ -185,6 +227,8 @@ export function Dashboard() {
           approvedCount={approvedCount}
           rejectedCount={rejectedCount}
           errorCount={0}
+          wsStatus={wsStatus}
+          hasNewItems={hasNewItems}
         />
       </div>
 
