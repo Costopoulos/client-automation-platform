@@ -318,25 +318,38 @@ JSON output:"""
             return 0.0
 
         # Determine relevant fields for completeness calculation
-        # If document has invoice data, count all fields; otherwise exclude invoice fields
+        # Define optional fields that shouldn't penalize confidence if missing
+        optional_fields = {"priority", "message"}
         invoice_fields = {"invoice_number", "amount", "vat", "total_amount"}
-        has_invoice_data = any(
-            extracted_data.get(field) is not None for field in invoice_fields
+
+        has_invoice_data = any(extracted_data.get(field) is not None for field in invoice_fields)
+
+        # Calculate relevant fields based on document type
+        if has_invoice_data:
+            # Document has invoice data - all invoice fields are required, client fields are optional
+            required_fields = [
+                f for f in schema.keys() if f in invoice_fields or f == "date" or f == "client_name"
+            ]
+        else:
+            # Document is client-only - exclude invoice fields, some client fields optional
+            required_fields = [
+                f for f in schema.keys() if f not in invoice_fields and f not in optional_fields
+            ]
+
+        # Count how many required fields were populated
+        populated_required = sum(
+            1 for field in required_fields if extracted_data.get(field) is not None
         )
 
-        if has_invoice_data:
-            # Document has invoice data, count all schema fields
-            relevant_fields = len(schema)
-        else:
-            # Document doesn't have invoice data, exclude invoice fields from expected count
-            relevant_fields = len([f for f in schema.keys() if f not in invoice_fields])
+        # Completeness based only on required fields
+        completeness = populated_required / len(required_fields) if required_fields else 1.0
 
-        # Average confidence weighted by completeness
+        # Average confidence of populated fields (both required and optional)
         avg_confidence = sum(confidences) / len(confidences)
-        completeness = len(confidences) / relevant_fields if relevant_fields > 0 else 0.0
 
-        # Overall confidence is average of field confidence and completeness
-        overall_confidence = (avg_confidence + completeness) / 2.0
+        # Weight confidence more heavily than completeness (70/30 split)
+        # This way, high-confidence extractions aren't penalized too much for missing optional fields
+        overall_confidence = (avg_confidence * 0.7) + (completeness * 0.3)
 
         return round(overall_confidence, 3)
 
