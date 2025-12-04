@@ -288,6 +288,17 @@ JSON output:"""
         """
         Calculate overall confidence score based on field confidences and completeness
 
+        This method implements a confidence calculation algorithm that:
+        1. Uses per-field confidence scores from the LLM
+        2. Considers field completeness (required vs optional fields)
+        3. Adapts to document type (invoice vs client data)
+        4. Weights confidence more heavily than completeness (70/30 split)
+
+        The goal is to provide an accurate signal for human review prioritization:
+        - High confidence (>0.8): Likely accurate, quick review
+        - Medium confidence (0.6-0.8): Needs careful review
+        - Low confidence (<0.6): Requires detailed manual review
+
         Args:
             extracted_data: Extracted data with field_confidences
             schema: Expected fields

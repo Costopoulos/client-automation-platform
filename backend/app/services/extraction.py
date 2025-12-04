@@ -316,13 +316,16 @@ class ExtractionService:
     ) -> float:
         """
         Calculate overall confidence score combining AI confidence and validation results
+        This is a critical method that determines how much we trust an extraction.
 
         Confidence calculation strategy:
         1. Start with AI confidence if available (0.0-1.0)
-        2. Adjust based on validation warnings:
-           - Each error reduces confidence by 0.15
-           - Each warning reduces confidence by 0.05
-        3. Consider field completeness for required fields
+           - AI provides per-field confidence, we use the overall score
+        2. For rule-based extraction, calculate based on field completeness
+           - More complete data = higher confidence
+        3. Adjust based on validation warnings:
+           - Each error reduces confidence by 0.15 (significant issues)
+           - Each warning reduces confidence by 0.05 (minor issues)
         4. Ensure final confidence is in range [0.0, 1.0]
 
         Args:
@@ -352,6 +355,7 @@ class ExtractionService:
         # Ensure confidence is in valid range
         confidence = max(0.0, min(1.0, confidence))
 
+        # Round to 3 decimal places
         return round(confidence, 3)
 
     def _calculate_completeness_confidence(
