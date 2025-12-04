@@ -1,0 +1,56 @@
+# Git
+.git
+.gitignore
+
+# Documentation
+*.md
+!README.md
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Dependencies (will be installed in container)
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build outputs
+.next/
+dist/
+build/
+*.egg-info/
+
+# Test coverage
+coverage/
+.coverage
+htmlcov/
+
+# Credentials (should never be in image)
+credentials/
+*.json
+!package.json
+!package-lock.json
+!tsconfig.json
+
+# Misc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
