@@ -41,6 +41,7 @@ class RuleBasedEmailParser(BaseParser):
 
         # Combine all extracted data
         data = {
+            # Client fields
             "client_name": extracted_info.get("name") or sender_name,
             "email": extracted_info.get("email") or sender_email,
             "phone": extracted_info.get("phone"),
@@ -49,6 +50,11 @@ class RuleBasedEmailParser(BaseParser):
             "message": body,
             "date": date,
             "priority": None,  # Can be inferred from subject keywords if needed
+            # Invoice fields (will be None if not present in email)
+            "invoice_number": extracted_info.get("invoice_number"),
+            "amount": extracted_info.get("amount"),
+            "vat": extracted_info.get("vat"),
+            "total_amount": extracted_info.get("total_amount"),
         }
 
         # Clean up the data
@@ -121,6 +127,7 @@ class RuleBasedEmailParser(BaseParser):
         - Email: giannis@example.com
         - Τηλέφωνο: 210-1234567
         - Εταιρεία: Company Name
+        - Invoice fields (for emails containing invoice information)
 
         Args:
             body: Email body text
@@ -134,6 +141,7 @@ class RuleBasedEmailParser(BaseParser):
         name_patterns = [
             r"(?:Όνομα|Name|Ονοματεπώνυμο):\s*(.+?)(?:\n|$)",
             r"(?:Είμαι ο|Είμαι η)\s+(.+?)(?:\s+από|\s+και|$)",
+            r"(?:Προμηθευτής|Supplier|Client):\s*(.+?)(?:\n|$)",
         ]
         for pattern in name_patterns:
             match = re.search(pattern, body, re.IGNORECASE | re.MULTILINE)
@@ -167,6 +175,62 @@ class RuleBasedEmailParser(BaseParser):
             match = re.search(pattern, body, re.IGNORECASE | re.MULTILINE)
             if match:
                 info["company"] = match.group(1).strip()
+                break
+
+        # Invoice field patterns (for emails containing invoice information)
+        # Pattern for invoice number (TF-YYYY-NNN format)
+        invoice_patterns = [
+            r"(?:Τιμολόγιο|Invoice|Αριθμός)[\s#:]*([A-Z]{2}-\d{4}-\d{3})",
+            r"#([A-Z]{2}-\d{4}-\d{3})",
+        ]
+        for pattern in invoice_patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
+                info["invoice_number"] = match.group(1).strip()
+                break
+
+        # Pattern for amounts (Greek and English labels)
+        # Base amount
+        amount_patterns = [
+            r"(?:Καθαρή Αξία|Base Amount|Amount|Ποσό):\s*€?\s*([\d,\.]+)",
+            r"(?:Καθαρή Αξία|Base Amount):\s*€?\s*([\d,\.]+)",
+        ]
+        for pattern in amount_patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
+                amount_str = match.group(1).replace(",", "")
+                try:
+                    info["amount"] = float(amount_str)
+                except ValueError:
+                    pass
+                break
+
+        # VAT amount
+        vat_patterns = [
+            r"(?:ΦΠΑ|VAT)\s*(?:24%)?:\s*€?\s*([\d,\.]+)",
+        ]
+        for pattern in vat_patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
+                vat_str = match.group(1).replace(",", "")
+                try:
+                    info["vat"] = float(vat_str)
+                except ValueError:
+                    pass
+                break
+
+        # Total amount
+        total_patterns = [
+            r"(?:Συνολικό Ποσό|Total Amount|Total|Σύνολο):\s*€?\s*([\d,\.]+)",
+        ]
+        for pattern in total_patterns:
+            match = re.search(pattern, body, re.IGNORECASE)
+            if match:
+                total_str = match.group(1).replace(",", "")
+                try:
+                    info["total_amount"] = float(total_str)
+                except ValueError:
+                    pass
                 break
 
         return info
