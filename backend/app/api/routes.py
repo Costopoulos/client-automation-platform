@@ -175,10 +175,12 @@ async def approve_record(record_id: str) -> ApprovalResult:
             raise HTTPException(status_code=404, detail=f"Record {record_id} not found")
 
         # Write to appropriate Google Sheets sheet
+        # Route based on whether record contains invoice data, not just type
+        # since emails can contain invoice information
         try:
-            if record.type == RecordType.INVOICE:
+            if record.type == RecordType.INVOICE or record.invoice_number:
                 row_number = sheets_client.write_invoice_record(record)
-            else:  # FORM or EMAIL
+            else:  # FORM or EMAIL without invoice data
                 row_number = sheets_client.write_client_record(record)
 
             # Remove from pending queue

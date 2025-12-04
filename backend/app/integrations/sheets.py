@@ -384,12 +384,14 @@ class GoogleSheetsClient:
             Row number where data was written
 
         Raises:
-            ValueError: If record type is not INVOICE
+            ValueError: If record doesn't have invoice data
             Exception: If write operation fails after retries
         """
-        if record.type != RecordType.INVOICE:
+        # Accept INVOICE type OR any record with invoice_number (e.g., emails containing invoices)
+        if record.type != RecordType.INVOICE and not record.invoice_number:
             raise ValueError(
-                f"Cannot write record type {record.type.value} to Invoices sheet. Expected INVOICE."
+                f"Cannot write record to Invoices sheet. Record must be type INVOICE "
+                f"or contain invoice_number. Got type {record.type.value} with no invoice_number."
             )
 
         # Ensure sheet exists before writing

@@ -14,6 +14,7 @@ class LLMEmailParser(BaseParser):
         """Initialize with AI extractor"""
         self.extractor = AIExtractor()
         self.schema = {
+            # Client fields
             "client_name": "Full name of the client or sender",
             "email": "Email address",
             "phone": "Phone number (Greek format)",
@@ -21,6 +22,11 @@ class LLMEmailParser(BaseParser):
             "service_interest": "Main service, product, or subject of interest",
             "message": "Brief 1-2 sentence summary of the main request or message content",
             "date": "Email date",
+            # Invoice fields (for emails containing invoice information)
+            "invoice_number": "Invoice number if present (format: TF-YYYY-NNN)",
+            "amount": "Base amount before VAT (numeric value only)",
+            "vat": "VAT amount (numeric value only)",
+            "total_amount": "Total amount including VAT (numeric value only)",
         }
 
     def parse(self, filepath: Path) -> Dict:
