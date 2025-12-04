@@ -59,9 +59,7 @@ def test_invoice_record():
 class TestGoogleSheetsIntegration:
     """Integration tests that write to real Google Sheets"""
 
-    def test_write_client_record_to_real_sheet(
-        self, sheets_client, test_client_record
-    ):
+    def test_write_client_record_to_real_sheet(self, sheets_client, test_client_record):
         """Test writing a client record to the real Google Sheets"""
         # Write the record
         row_number = sheets_client.write_client_record(test_client_record)
@@ -75,9 +73,7 @@ class TestGoogleSheetsIntegration:
         print(f"  Client: {test_client_record.client_name}")
         print(f"  Email: {test_client_record.email}")
 
-    def test_write_invoice_record_to_real_sheet(
-        self, sheets_client, test_invoice_record
-    ):
+    def test_write_invoice_record_to_real_sheet(self, sheets_client, test_invoice_record):
         """Test writing an invoice record to the real Google Sheets"""
         # Write the record
         row_number = sheets_client.write_invoice_record(test_invoice_record)

@@ -158,7 +158,7 @@ class GoogleSheetsClient:
                             "headers_added_to_existing_sheet",
                             sheet_name=sheet_name,
                         )
-                except Exception as e:
+                except Exception:
                     # If we can't read the first row, assume it's empty and add headers
                     worksheet.update(
                         values=[headers], range_name="A1", value_input_option="USER_ENTERED"

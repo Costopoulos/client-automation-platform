@@ -323,9 +323,9 @@ class TestLLMExtractionQuality:
         # Fields with values should have higher confidence than null fields
         for field_name in schema.keys():
             if data.get(field_name) is not None:
-                assert field_confidences.get(field_name, 0) > 0.5, (
-                    f"Field {field_name} has value but low confidence"
-                )
+                assert (
+                    field_confidences.get(field_name, 0) > 0.5
+                ), f"Field {field_name} has value but low confidence"
 
 
 class TestLLMVsRuleBasedComparison:
@@ -462,9 +462,7 @@ class TestLLMMessageSummarization:
             "message": "Brief 1-2 sentence summary of the main request or message",
         }
 
-        data, confidence = ai_extractor.extract_structured_data(
-            content, schema, RecordType.EMAIL
-        )
+        data, confidence = ai_extractor.extract_structured_data(content, schema, RecordType.EMAIL)
 
         message = data.get("message", "")
         print("\n=== Message Summarization Test ===")
@@ -491,9 +489,7 @@ class TestLLMMessageSummarization:
             "message": "Brief 1-2 sentence summary of the main request",
         }
 
-        data, confidence = ai_extractor.extract_structured_data(
-            content, schema, RecordType.FORM
-        )
+        data, confidence = ai_extractor.extract_structured_data(content, schema, RecordType.FORM)
 
         message = data.get("message", "")
         print("\n=== Form Message Summarization Test ===")

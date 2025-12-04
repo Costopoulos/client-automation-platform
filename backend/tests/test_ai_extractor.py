@@ -32,9 +32,7 @@ def test_build_extraction_prompt_form(ai_extractor):
     }
     content = "<html><body>Test form</body></html>"
 
-    prompt = ai_extractor._build_extraction_prompt(
-        content, schema, RecordType.FORM
-    )
+    prompt = ai_extractor._build_extraction_prompt(content, schema, RecordType.FORM)
 
     assert "client_name" in prompt
     assert "email" in prompt
@@ -53,9 +51,7 @@ def test_build_extraction_prompt_invoice(ai_extractor):
     }
     content = "<html><body>Invoice content</body></html>"
 
-    prompt = ai_extractor._build_extraction_prompt(
-        content, schema, RecordType.INVOICE
-    )
+    prompt = ai_extractor._build_extraction_prompt(content, schema, RecordType.INVOICE)
 
     assert "invoice_number" in prompt
     assert "amount" in prompt
@@ -65,11 +61,13 @@ def test_build_extraction_prompt_invoice(ai_extractor):
 
 def test_parse_llm_response_with_confidence(ai_extractor):
     """Test parsing LLM response with confidence scores"""
-    response = json.dumps({
-        "client_name": {"value": "John Doe", "confidence": 0.95},
-        "email": {"value": "john@example.com", "confidence": 0.9},
-        "phone": {"value": "+30 123456789", "confidence": 0.85},
-    })
+    response = json.dumps(
+        {
+            "client_name": {"value": "John Doe", "confidence": 0.95},
+            "email": {"value": "john@example.com", "confidence": 0.9},
+            "phone": {"value": "+30 123456789", "confidence": 0.85},
+        }
+    )
 
     result = ai_extractor._parse_llm_response(response)
 
@@ -83,11 +81,13 @@ def test_parse_llm_response_with_confidence(ai_extractor):
 
 def test_parse_llm_response_with_null_values(ai_extractor):
     """Test parsing LLM response with null values"""
-    response = json.dumps({
-        "client_name": {"value": "John Doe", "confidence": 0.95},
-        "email": {"value": None, "confidence": 0.0},
-        "phone": {"value": None, "confidence": 0.0},
-    })
+    response = json.dumps(
+        {
+            "client_name": {"value": "John Doe", "confidence": 0.95},
+            "email": {"value": None, "confidence": 0.0},
+            "phone": {"value": None, "confidence": 0.0},
+        }
+    )
 
     result = ai_extractor._parse_llm_response(response)
 
@@ -99,10 +99,12 @@ def test_parse_llm_response_with_null_values(ai_extractor):
 
 def test_parse_llm_response_fallback_format(ai_extractor):
     """Test parsing LLM response with fallback format (direct values)"""
-    response = json.dumps({
-        "client_name": "John Doe",
-        "email": "john@example.com",
-    })
+    response = json.dumps(
+        {
+            "client_name": "John Doe",
+            "email": "john@example.com",
+        }
+    )
 
     result = ai_extractor._parse_llm_response(response)
 
@@ -143,8 +145,8 @@ def test_calculate_confidence_with_field_confidences(ai_extractor):
 
     # Average confidence: (0.95 + 0.9 + 0.85) / 3 = 0.9
     # Completeness: 3/3 = 1.0
-    # Overall: (0.9 + 1.0) / 2 = 0.95
-    assert confidence == 0.95
+    # Overall: (0.9 * 0.7) + (1.0 * 0.3) = 0.63 + 0.3 = 0.93
+    assert confidence == 0.93
 
 
 def test_calculate_confidence_with_missing_fields(ai_extractor):
@@ -170,8 +172,8 @@ def test_calculate_confidence_with_missing_fields(ai_extractor):
     # Only non-null fields: client_name (0.95), phone (0.85)
     # Average confidence: (0.95 + 0.85) / 2 = 0.9
     # Completeness: 2/3 = 0.667
-    # Overall: (0.9 + 0.667) / 2 = 0.783
-    assert 0.78 <= confidence <= 0.79
+    # Overall: (0.9 * 0.7) + (0.667 * 0.3) = 0.63 + 0.2 = 0.83
+    assert confidence == 0.83
 
 
 def test_calculate_confidence_without_field_confidences(ai_extractor):
@@ -223,10 +225,12 @@ def test_extract_structured_data_success(mock_settings, mock_openai_class):
 
     mock_response = Mock()
     mock_response.choices = [Mock()]
-    mock_response.choices[0].message.content = json.dumps({
-        "client_name": {"value": "John Doe", "confidence": 0.95},
-        "email": {"value": "john@example.com", "confidence": 0.9},
-    })
+    mock_response.choices[0].message.content = json.dumps(
+        {
+            "client_name": {"value": "John Doe", "confidence": 0.95},
+            "email": {"value": "john@example.com", "confidence": 0.9},
+        }
+    )
     mock_client.chat.completions.create.return_value = mock_response
 
     # Create extractor and test
@@ -237,9 +241,7 @@ def test_extract_structured_data_success(mock_settings, mock_openai_class):
     }
     content = "<html>Test content</html>"
 
-    result, confidence = extractor.extract_structured_data(
-        content, schema, RecordType.FORM
-    )
+    result, confidence = extractor.extract_structured_data(content, schema, RecordType.FORM)
 
     assert result["client_name"] == "John Doe"
     assert result["email"] == "john@example.com"
@@ -250,9 +252,7 @@ def test_extract_structured_data_success(mock_settings, mock_openai_class):
 @patch("app.parsers.llm_based.extractor.time.sleep")
 @patch("app.parsers.llm_based.extractor.OpenAI")
 @patch("app.parsers.llm_based.extractor.get_settings")
-def test_extract_structured_data_retry_on_rate_limit(
-    mock_settings, mock_openai_class, mock_sleep
-):
+def test_extract_structured_data_retry_on_rate_limit(mock_settings, mock_openai_class, mock_sleep):
     """Test retry logic on rate limit error"""
     # Setup mocks
     settings = Mock()
@@ -270,9 +270,11 @@ def test_extract_structured_data_retry_on_rate_limit(
 
     mock_response = Mock()
     mock_response.choices = [Mock()]
-    mock_response.choices[0].message.content = json.dumps({
-        "client_name": {"value": "John Doe", "confidence": 0.95},
-    })
+    mock_response.choices[0].message.content = json.dumps(
+        {
+            "client_name": {"value": "John Doe", "confidence": 0.95},
+        }
+    )
 
     mock_client.chat.completions.create.side_effect = [
         RateLimitError("Rate limit", response=Mock(), body=None),
@@ -285,9 +287,7 @@ def test_extract_structured_data_retry_on_rate_limit(
     schema = {"client_name": "Full name"}
     content = "<html>Test content</html>"
 
-    result, confidence = extractor.extract_structured_data(
-        content, schema, RecordType.FORM
-    )
+    result, confidence = extractor.extract_structured_data(content, schema, RecordType.FORM)
 
     assert result["client_name"] == "John Doe"
     assert mock_client.chat.completions.create.call_count == 3
@@ -297,9 +297,7 @@ def test_extract_structured_data_retry_on_rate_limit(
 @patch("app.parsers.llm_based.extractor.time.sleep")
 @patch("app.parsers.llm_based.extractor.OpenAI")
 @patch("app.parsers.llm_based.extractor.get_settings")
-def test_extract_structured_data_max_retries_exceeded(
-    mock_settings, mock_openai_class, mock_sleep
-):
+def test_extract_structured_data_max_retries_exceeded(mock_settings, mock_openai_class, mock_sleep):
     """Test that extraction fails after max retries"""
     # Setup mocks
     settings = Mock()

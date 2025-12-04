@@ -211,7 +211,7 @@ class TestGoogleSheetsClient:
         """Test writing client record to invoice sheet raises error"""
         client = GoogleSheetsClient(mock_credentials_file, mock_spreadsheet_id)
 
-        with pytest.raises(ValueError, match="Cannot write record type FORM to Invoices sheet"):
+        with pytest.raises(ValueError, match="Cannot write record to Invoices sheet"):
             client.write_invoice_record(client_record)
 
     @patch("app.integrations.sheets.ServiceAccountCredentials")
@@ -252,7 +252,7 @@ class TestGoogleSheetsClient:
 
         # Create client and write record
         client = GoogleSheetsClient(mock_credentials_file, mock_spreadsheet_id)
-        row_number = client.write_client_record(client_record)
+        client.write_client_record(client_record)
 
         # Verify retries occurred
         assert mock_worksheet.append_row.call_count == 3

@@ -84,6 +84,7 @@ class LLMInvoiceParser(BaseParser):
         invoice_num = data.get("invoice_number")
         if invoice_num:
             import re
+
             if not re.match(r"TF-\d{4}-\d{3}", invoice_num):
                 warnings.append(
                     ValidationWarning(

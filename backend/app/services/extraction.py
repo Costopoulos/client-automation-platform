@@ -386,7 +386,9 @@ class ExtractionService:
 
         # Count non-null required fields
         present_count = sum(
-            1 for field in fields if extracted_data.get(field) is not None and extracted_data.get(field) != ""
+            1
+            for field in fields
+            if extracted_data.get(field) is not None and extracted_data.get(field) != ""
         )
 
         # Calculate completeness ratio
