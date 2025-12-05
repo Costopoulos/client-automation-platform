@@ -1,9 +1,13 @@
 import json
+import traceback
 from typing import List, Optional
 
 import redis.asyncio as redis
+import structlog
 
 from app.models.extraction import ExtractionRecord
+
+logger = structlog.get_logger()
 
 
 class PendingQueueManager:
@@ -48,31 +52,54 @@ class PendingQueueManager:
         Raises:
             ValueError: If a record with the same ID already exists
         """
-        record_key = f"{self.QUEUE_PREFIX}{record.id}"
+        try:
+            record_key = f"{self.QUEUE_PREFIX}{record.id}"
 
-        # Check if record already exists
-        exists = await self._redis.exists(record_key)
-        if exists:
-            raise ValueError(f"Record with ID {record.id} already exists in queue")
+            # Check if record already exists
+            exists = await self._redis.exists(record_key)
+            if exists:
+                logger.warning(
+                    "queue_add_duplicate",
+                    record_id=record.id,
+                )
+                raise ValueError(f"Record with ID {record.id} already exists in queue")
 
-        # Store record as JSON
-        record_json = record.model_dump_json()
+            # Store record as JSON
+            record_json = record.model_dump_json()
 
-        # Use pipeline for atomic operations
-        async with self._redis.pipeline(transaction=True) as pipe:
-            pipe.set(record_key, record_json)
-            pipe.sadd(self.QUEUE_IDS_KEY, record.id)
-            await pipe.execute()
+            # Use pipeline for atomic operations
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.set(record_key, record_json)
+                pipe.sadd(self.QUEUE_IDS_KEY, record.id)
+                await pipe.execute()
 
-        # Publish event for real-time updates
-        await self._publish_event(
-            "record_added",
-            {
-                "record_id": record.id,
-                "type": record.type,
-                "confidence": record.confidence,
-            },
-        )
+            logger.info(
+                "queue_record_added",
+                record_id=record.id,
+                record_type=record.type.value,
+                confidence=record.confidence,
+                source_file=record.source_file,
+                warnings_count=len(record.warnings),
+            )
+
+            # Publish event for real-time updates
+            await self._publish_event(
+                "record_added",
+                {
+                    "record_id": record.id,
+                    "type": record.type,
+                    "confidence": record.confidence,
+                },
+            )
+        except Exception as e:
+            logger.error(
+                "queue_add_failed",
+                record_id=record.id,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            )
+            raise
 
     async def remove(self, record_id: str) -> None:
         """
@@ -84,21 +111,40 @@ class PendingQueueManager:
         Raises:
             KeyError: If the record ID does not exist in the queue
         """
-        record_key = f"{self.QUEUE_PREFIX}{record_id}"
+        try:
+            record_key = f"{self.QUEUE_PREFIX}{record_id}"
 
-        # Check if record exists
-        exists = await self._redis.exists(record_key)
-        if not exists:
-            raise KeyError(f"Record with ID {record_id} not found in queue")
+            # Check if record exists
+            exists = await self._redis.exists(record_key)
+            if not exists:
+                logger.warning(
+                    "queue_remove_not_found",
+                    record_id=record_id,
+                )
+                raise KeyError(f"Record with ID {record_id} not found in queue")
 
-        # Use pipeline for atomic operations
-        async with self._redis.pipeline(transaction=True) as pipe:
-            pipe.delete(record_key)
-            pipe.srem(self.QUEUE_IDS_KEY, record_id)
-            await pipe.execute()
+            # Use pipeline for atomic operations
+            async with self._redis.pipeline(transaction=True) as pipe:
+                pipe.delete(record_key)
+                pipe.srem(self.QUEUE_IDS_KEY, record_id)
+                await pipe.execute()
 
-        # Publish event for real-time updates
-        await self._publish_event("record_removed", {"record_id": record_id})
+            logger.info(
+                "queue_record_removed",
+                record_id=record_id,
+            )
+
+            # Publish event for real-time updates
+            await self._publish_event("record_removed", {"record_id": record_id})
+        except Exception as e:
+            logger.error(
+                "queue_remove_failed",
+                record_id=record_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            )
+            raise
 
     async def update(self, record_id: str, updates: dict) -> ExtractionRecord:
         """
@@ -114,31 +160,51 @@ class PendingQueueManager:
         Raises:
             KeyError: If the record ID does not exist in the queue
         """
-        record_key = f"{self.QUEUE_PREFIX}{record_id}"
+        try:
+            record_key = f"{self.QUEUE_PREFIX}{record_id}"
 
-        # Get existing record
-        record_json = await self._redis.get(record_key)
-        if not record_json:
-            raise KeyError(f"Record with ID {record_id} not found in queue")
+            # Get existing record
+            record_json = await self._redis.get(record_key)
+            if not record_json:
+                logger.warning(
+                    "queue_update_not_found",
+                    record_id=record_id,
+                )
+                raise KeyError(f"Record with ID {record_id} not found in queue")
 
-        # Parse and update
-        record_data = json.loads(record_json)
-        record_data.update(updates)
-        updated_record = ExtractionRecord(**record_data)
+            # Parse and update
+            record_data = json.loads(record_json)
+            record_data.update(updates)
+            updated_record = ExtractionRecord(**record_data)
 
-        # Save updated record
-        await self._redis.set(record_key, updated_record.model_dump_json())
+            # Save updated record
+            await self._redis.set(record_key, updated_record.model_dump_json())
 
-        # Publish event for real-time updates
-        await self._publish_event(
-            "record_updated",
-            {
-                "record_id": record_id,
-                "updates": list(updates.keys()),
-            },
-        )
+            logger.info(
+                "queue_record_updated",
+                record_id=record_id,
+                updated_fields=list(updates.keys()),
+            )
 
-        return updated_record
+            # Publish event for real-time updates
+            await self._publish_event(
+                "record_updated",
+                {
+                    "record_id": record_id,
+                    "updates": list(updates.keys()),
+                },
+            )
+
+            return updated_record
+        except Exception as e:
+            logger.error(
+                "queue_update_failed",
+                record_id=record_id,
+                error=str(e),
+                error_type=type(e).__name__,
+                traceback=traceback.format_exc(),
+            )
+            raise
 
     async def list_all(self) -> List[ExtractionRecord]:
         """
