@@ -585,4 +585,4 @@ Planned shortcuts:
 
 For technical setup and configuration, see [SETUP.md](SETUP.md).
 
-For system architecture and development, see [README.md](README.md).
+For system architecture and development, see [README.md](/README.md).
