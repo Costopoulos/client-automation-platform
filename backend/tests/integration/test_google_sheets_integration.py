@@ -183,7 +183,7 @@ def test_error_handling_wrong_record_type(sheets_client, test_invoice_record):
 @pytest.mark.integration
 def test_error_handling_wrong_record_type_invoice(sheets_client, test_client_record):
     """Test that writing wrong record type to invoice sheet raises error"""
-    with pytest.raises(ValueError, match="Cannot write record type FORM"):
+    with pytest.raises(ValueError, match="Cannot write record to Invoices sheet"):
         sheets_client.write_invoice_record(test_client_record)
 
     print("\nCorrectly rejected FORM record for Invoices sheet")
