@@ -1,0 +1,92 @@
+%% TechFlow Automation Platform - Complete Workflow
+%% Shows scan, review, and all user actions (approve/edit/reject)
+
+graph TB
+    Start([User Opens Dashboard])
+
+    %% Scan Flow
+    Start --> ScanBtn[User Clicks<br/>'Scan for New Files']
+    ScanBtn --> ScanAPI[POST /api/scan]
+    ScanAPI --> Discover[Discover New Files<br/>forms/, emails/, invoices/]
+    Discover --> Filter[Filter Already<br/>Processed Files]
+    Filter --> HasFiles{New Files<br/>Found?}
+
+    HasFiles -->|No| NoFiles[Show: No new files]
+    NoFiles --> Start
+
+    HasFiles -->|Yes| ProcessLoop[For Each File]
+    ProcessLoop --> Route[Route to<br/>Hybrid Parser]
+    Route --> TryAI[Try AI Extraction<br/>OpenAI API]
+    TryAI --> AISuccess{AI Success &<br/>Confidence OK?}
+
+    AISuccess -->|Yes| Validate
+    AISuccess -->|No| Fallback[Fallback to<br/>Rule-based Parser]
+    Fallback --> Validate[Validate Data<br/>email, phone, calculations]
+
+    Validate --> CalcConf[Calculate<br/>Confidence Score]
+    CalcConf --> CreateRecord[Create<br/>ExtractionRecord]
+    CreateRecord --> AddQueue[Add to Redis Queue]
+    AddQueue --> PubSub[Publish 'record_added'<br/>to Redis PubSub]
+    PubSub --> WSBroadcast[WebSocket Broadcasts<br/>to All Clients]
+    WSBroadcast --> FrontendNotif[Frontend Shows<br/>Toast Notification]
+    FrontendNotif --> DisplayCard[Display Extraction<br/>Card in Dashboard]
+
+    DisplayCard --> MoreFiles{More Files?}
+    MoreFiles -->|Yes| ProcessLoop
+    MoreFiles -->|No| Review
+
+    %% Review State
+    Review[User Reviews<br/>Extraction Card]
+    Review --> UserAction{User Action?}
+
+    %% Approve Flow
+    UserAction -->|Approve| ApproveAPI[POST /api/approve/id]
+    ApproveAPI --> GetRecord[Retrieve Record<br/>from Redis Queue]
+    GetRecord --> WriteSheets[Write to Google Sheets<br/>Clients or Invoices]
+    WriteSheets --> SheetsRetry{Success?}
+    SheetsRetry -->|No| RetrySheets[Retry with<br/>Exponential Backoff]
+    RetrySheets --> WriteSheets
+    SheetsRetry -->|Yes| RemoveApprove[Remove from<br/>Redis Queue]
+    RemoveApprove --> PubSubRemove[Publish 'record_removed'<br/>to Redis PubSub]
+    PubSubRemove --> WSRemove[WebSocket Broadcasts<br/>to All Clients]
+    WSRemove --> SuccessToast[Show Success Toast<br/>Remove Card from UI]
+    SuccessToast --> CheckMore{More Pending<br/>Records?}
+
+    %% Edit Flow
+    UserAction -->|Edit| EditModal[Open Edit Modal<br/>Show All Fields]
+    EditModal --> UserEdit[User Modifies<br/>Field Values]
+    UserEdit --> SaveEdit{Save Changes?}
+    SaveEdit -->|Cancel| Review
+    SaveEdit -->|Save| EditAPI[PATCH /api/edit/id]
+    EditAPI --> UpdateQueue[Update Record<br/>in Redis Queue]
+    UpdateQueue --> PubSubUpdate[Publish 'record_updated'<br/>to Redis PubSub]
+    PubSubUpdate --> WSUpdate[WebSocket Broadcasts<br/>to All Clients]
+    WSUpdate --> RefreshCard[Refresh Card<br/>with Updated Data]
+    RefreshCard --> Review
+
+    %% Reject Flow
+    UserAction -->|Reject| RejectAPI[POST /api/reject/id]
+    RejectAPI --> RemoveReject[Remove from<br/>Redis Queue]
+    RemoveReject --> PubSubReject[Publish 'record_removed'<br/>to Redis PubSub]
+    PubSubReject --> WSReject[WebSocket Broadcasts<br/>to All Clients]
+    WSReject --> RejectToast[Show Rejection Toast<br/>Remove Card from UI]
+    RejectToast --> CheckMore
+
+    CheckMore -->|Yes| Review
+    CheckMore -->|No| Idle[Dashboard Idle<br/>Waiting for Scan]
+    Idle --> Start
+
+    %% Styling
+    classDef userAction fill:#4CAF50,stroke:#333,stroke-width:2px,color:#fff
+    classDef apiCall fill:#2196F3,stroke:#333,stroke-width:2px,color:#fff
+    classDef processing fill:#FF9800,stroke:#333,stroke-width:2px,color:#000
+    classDef decision fill:#9C27B0,stroke:#333,stroke-width:2px,color:#fff
+    classDef realtime fill:#F44336,stroke:#333,stroke-width:2px,color:#fff
+    classDef success fill:#8BC34A,stroke:#333,stroke-width:2px,color:#000
+
+    class ScanBtn,EditModal,UserEdit userAction
+    class ScanAPI,ApproveAPI,EditAPI,RejectAPI,WriteSheets apiCall
+    class Route,TryAI,Fallback,Validate,CalcConf,CreateRecord processing
+    class HasFiles,AISuccess,UserAction,SaveEdit,SheetsRetry,MoreFiles,CheckMore decision
+    class PubSub,WSBroadcast,PubSubRemove,WSRemove,PubSubUpdate,WSUpdate,PubSubReject,WSReject realtime
+    class SuccessToast,RejectToast,FrontendNotif,DisplayCard success

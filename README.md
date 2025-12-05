@@ -18,7 +18,11 @@ The TechFlow Automation Platform addresses the challenge of processing diverse c
 - **Error Resilience**: Graceful handling of malformed files and API failures
 
 ## 🏗️ Architecture
-The architectural diagram can be found in the repo, named `architecture.jpg`.
+There are 2 diagrams.
+1. The [High-level Architectural Diagram](deliverables/diagrams/img/architecture.png)
+2. The [Flow Diagram](deliverables/diagrams/img/flow.png)
+
+Both are explained in the [Report](deliverables/report.pdf).
 
 ## 🚀 Quick Start
 

@@ -1,0 +1,63 @@
+graph TB
+    %% Frontend Layer
+    subgraph Frontend["Frontend (Next.js + TS)"]
+        direction LR
+        Dashboard[Dashboard Component]
+        Review[Review Workflow]
+        WS_Hook[useWebSocket Hook]
+    end
+
+    %% Backend Layer
+    subgraph Backend["Backend (FastAPI)"]
+        API[API Layer<br/>REST + WebSocket]
+        ExtService[Extraction Service]
+
+        subgraph Parsers["Hybrid Parsers"]
+            FormParser[Form Parser]
+            EmailParser[Email Parser]
+            InvoiceParser[Invoice Parser]
+        end
+
+        AIEngine[AI Extractor<br/>OpenAI SDK]
+        QueueMgr[Queue Manager]
+        WSManager[WebSocket Manager]
+        SheetsClient[Google Sheets Client]
+    end
+
+    %% External Services Layer
+    subgraph External["External Services"]
+        direction LR
+        Redis[(Redis<br/>Queue + PubSub)]
+        OpenAI[OpenAI API]
+        Sheets[Google Sheets API]
+        Files[File System<br/>Source Documents]
+    end
+
+    %% Frontend to Backend connections
+    Dashboard --> API
+    Review --> API
+    WS_Hook -.WebSocket.-> API
+
+    %% Backend internal connections
+    API --> ExtService
+    API --> WSManager
+    ExtService --> Parsers
+    Parsers --> AIEngine
+    AIEngine --> QueueMgr
+    QueueMgr --> SheetsClient
+
+    %% Backend to External connections
+    WSManager -.Subscribe.-> Redis
+    QueueMgr -.Publish.-> Redis
+    ExtService --> Files
+    AIEngine --> OpenAI
+    SheetsClient --> Sheets
+
+    %% Styling
+    classDef frontend fill:#61dafb,stroke:#333,stroke-width:2px,color:#000
+    classDef backend fill:#4db6ac,stroke:#333,stroke-width:2px,color:#fff
+    classDef external fill:#ffb74d,stroke:#333,stroke-width:2px,color:#000
+
+    class Dashboard,Review,WS_Hook frontend
+    class API,WSManager,QueueMgr,ExtService,FormParser,EmailParser,InvoiceParser,AIEngine,SheetsClient backend
+    class Redis,OpenAI,Sheets,Files external
