@@ -17,13 +17,14 @@ graph TB
     HasFiles -->|Yes| ProcessLoop[For Each File]
     ProcessLoop --> Route[Route to<br/>Hybrid Parser]
     Route --> TryAI[Try AI Extraction<br/>OpenAI API]
-    TryAI --> AISuccess{AI Success &<br/>Confidence OK?}
+    TryAI --> CalcAI[Calculate AI Confidence<br/>70% avg field confidence<br/>30% completeness]
+    CalcAI --> AISuccess{AI Success &<br/>Confidence OK?}
 
     AISuccess -->|Yes| Validate
     AISuccess -->|No| Fallback[Fallback to<br/>Rule-based Parser]
-    Fallback --> Validate[Validate Data<br/>email, phone, calculations]
+    Fallback --> Validate[Validate Data<br/>Label errors & warnings<br/>email, phone, calculations]
 
-    Validate --> CalcConf[Calculate<br/>Confidence Score]
+    Validate --> CalcConf[Calculate Final Confidence<br/>Subtract penalties:<br/>-0.15 per error<br/>-0.05 per warning]
     CalcConf --> CreateRecord[Create<br/>ExtractionRecord]
     CreateRecord --> AddQueue[Add to Redis Queue]
     AddQueue --> PubSub[Publish 'record_added'<br/>to Redis PubSub]
@@ -86,7 +87,7 @@ graph TB
 
     class ScanBtn,EditModal,UserEdit userAction
     class ScanAPI,ApproveAPI,EditAPI,RejectAPI,WriteSheets apiCall
-    class Route,TryAI,Fallback,Validate,CalcConf,CreateRecord processing
+    class Route,TryAI,CalcAI,Fallback,Validate,CalcConf,CreateRecord processing
     class HasFiles,AISuccess,UserAction,SaveEdit,SheetsRetry,MoreFiles,CheckMore decision
     class PubSub,WSBroadcast,PubSubRemove,WSRemove,PubSubUpdate,WSUpdate,PubSubReject,WSReject realtime
     class SuccessToast,RejectToast,FrontendNotif,DisplayCard success
