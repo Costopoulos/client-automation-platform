@@ -26,7 +26,7 @@ Both are explained in the [Report](deliverables/report.pdf).
 
 ## 🚀 Quick Start
 
-For setup instructions, see [SETUP.md](SETUP.md).
+For setup instructions, see [SETUP.md](docs/SETUP.md).
 
 ### Access the application
    - Frontend Dashboard: http://localhost:3000
@@ -35,7 +35,7 @@ For setup instructions, see [SETUP.md](SETUP.md).
 
 ## 📖 Usage
 
-See [USER_GUIDE.md](USER_GUIDE.md) for detailed usage instructions.
+See [USER_GUIDE.md](docs/USER_GUIDE.md) for detailed usage instructions.
 
 ### Quick Workflow
 
@@ -114,7 +114,7 @@ npm run test:coverage          # Run with coverage
 ## 🆘 FAQ
 
 For issues or questions:
-- Check [SETUP.md](SETUP.md) for setup troubleshooting
-- Review [USER_GUIDE.md](USER_GUIDE.md) for usage help
+- Check [SETUP.md](docs/SETUP.md) for setup troubleshooting
+- Review [USER_GUIDE.md](docs/USER_GUIDE.md) for usage help
 - Check API documentation at http://localhost:8000/docs
 - Review logs in `backend/logs/` directory
