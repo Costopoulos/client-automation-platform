@@ -8,7 +8,6 @@ services:
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes
-    restart: unless-stopped
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
@@ -36,7 +35,6 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
-    restart: unless-stopped
     depends_on:
       redis:
         condition: service_healthy
@@ -60,7 +58,6 @@ services:
     environment:
       - NEXT_PUBLIC_API_URL=http://localhost:8000
       - NEXT_PUBLIC_WS_URL=ws://localhost:8000
-    restart: unless-stopped
     depends_on:
       - backend
     networks:
